@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>三值状态机 · trit-agent 维基</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<a href="Home.html" class="">🏠 首页</a>
+<a href="Getting-Started.html" class="">🚀 上手</a>
+<a href="Hotkeys.html" class="">⌨️ 热键</a>
+<h2>上手</h2><div>
+<a href="Configuration.html" class="">⚙️ 配置</a>
+<a href="Background-Daemon.html" class="">🔧 后台守护进程</a>
+<a href="Tri-Value-FSM.html" class="on">🎲 三值状态机</a>
+<a href="Perception.html" class="">👁️ 感知</a>
+</div>
+<h2>原理</h2><div>
+<a href="Gathering.html" class="">🪓 采集</a>
+<a href="Architecture.html" class="">🏗️ 架构</a>
+<a href="Data-Packs.html" class="">📦 数据包</a>
+<a href="Sensor-Protocol.html" class="">🔌 传感器协议</a>
+</div>
+<h2>Minecraft 侧</h2><div>
+<a href="Crash-Troubleshooting.html" class="">💥 崩溃排查</a>
+<a href="Troubleshooting.html" class="">🔍 没效果怎么查</a>
+<a href="Building.html" class="">🔨 构建与测试</a>
+<a href="Design-Boundaries.html" class="">⚖️ 能力边界</a>
+</div>
+<h2>开发</h2><div>
+<a href="Control-Channels.html" class="">🎛️ 操控方式</a>
+</div>
+</nav>
+<main>
+<h1>三值状态机</h1><p class="subtitle">为什么不是「做 / 不做」两档</p>
+<p>状态机不产出「做/不做」两档，而是每个通道产出 <code>-1 / 0 / +1</code>：</p>
+<table>
+<thead><tr><th>值</th><th>含义</th><th>行为</th></tr></thead>
+<tbody><tr><td><code>+1</code></td><td>明确要</td><td>执行</td></tr><tr><td><code>-1</code></td><td>明确反对</td><td>反向执行</td></tr><tr><td><code>0</code></td><td><strong>不知道</strong></td><td>弃权，交还给人</td></tr></tbody>
+</table>
+<p>关键在于第三档。布尔状态机没有「不知道」——没检测到敌人时，<br><code>if (enemy == null) attack();</code> 里的 <code>attack()</code> 是<strong>不执行</strong>，但如果写成<br><code>if (enemy != null) retreat(); else attack();</code> 就变成了「没看到就冲」。</p>
+<p>三值把「没看到」和「看到没有」分开了。</p>
+<hr>
+<h2>三条硬规则</h2>
+<p>（<code>src/fsm.rs</code>）</p>
+<h3>1. 没人投有效票 → 松手</h3>
+<p>不会因为「默认值」乱动。所有通道都是 <code>0</code> 时，输出也是 <code>0</code>。</p>
+<h3>2. 未知票权重 &gt; 已知票权重 → 弃权</h3>
+<p>这是整个东西的<strong>安全底线</strong>：</p>
+<ul>
+<li>没感知到敌人时它不会瞎打</li>
+<li>血量未知时它不会硬冲</li>
+</ul>
+<p>也就是说，<strong>感知不全 = 动作变小</strong>，而不是「按默认值补全」。<br>这是三值相对于布尔最大的实际收益。</p>
+<h3>3. 迟滞</h3>
+<ul>
+<li>从 <code>0</code> 转到 <code>+1</code> 要过 <code>阈值</code></li>
+<li>从 <code>-1</code> 翻到 <code>+1</code> 要过 <code>阈值 + 迟滞</code></li>
+</ul>
+<p>鼠标抖动、日志延迟导致的来回横跳会被吃掉。</p>
+<hr>
+<h2>一个反直觉的地方</h2>
+<p><strong>阶段转移表不能直接用 K3 的 <code>and</code> 写。</strong></p>
+<p><code>威胁 AND 血量健康</code> 在 K3 里会得到 <code>Neg</code>（因为 <code>Neg</code> 在合取里吸收），<br>得出「满血 → 不交战」的错结论。</p>
+<p>所以转移写成 3×3 表，见 <code>Machine::next_phase</code>。这不是偷懒，<br>是 K3 的 AND 在这个语义下<strong>真的不对</strong>。</p>
+<hr>
+<h2>从 NPC 那里偷来的战术</h2>
+<p>整合包里的 <code>hostile_humans</code>、<code>enhancedai</code>、<code>improvedmobs</code>、<code>humancompanions</code><br>这几个 mod 的 NPC 打得很像人，但它们的 Goal 类里没有一处是三值的——<br>全是 <code>if (distanceToSqr &lt; 49.0)</code> 这种硬编码阈值。</p>
+<p>我把这些 Goal 反编译，把常量池里的数值一个个挖出来<br>（<code>(N = x²)</code> 表示原作者写的是 <code>distanceToSqr</code>），然后用三值重写了一遍。<br>见 <code>src/npc.rs</code>。</p>
+<table>
+<thead><tr><th>移植过来的</th><th>来源 Goal</th><th>原始数值</th><th>三值化之后</th></tr></thead>
+<tbody><tr><td>交战距离带</td><td><code>hostile_humans/MeleeAttackGoal</code> + <code>enhancedai/EARangedBowAttackGoal</code></td><td>3 格 / 49.0 = 7² 格</td><td>远 <code>+</code> 追 / <strong>刚好 <code>0</code> 站住</strong> / 贴脸 <code>-</code> 退半步</td></tr><tr><td>爆炸物规避</td><td><code>AvoidCreeperGoal</code> / <code>AvoidTNTGoal</code></td><td>10.0 / 3.0 格</td><td><code>+</code> 必须躲 / <code>-</code> 明确安全 / <code>0</code> 无感知</td></tr><tr><td>举盾格挡</td><td><code>enhancedai/ShieldingGoal</code> / <code>RaiseShieldGoal</code></td><td>30 tick = 1.5 秒</td><td>受伤 + 近身才 <code>+</code></td></tr><tr><td>卡住拆墙</td><td><code>improvedmobs/BlockBreakGoal</code> / <code>DiggingGoal</code></td><td>0.5 / 1.1 / 4.0</td><td>卡住 → 低头 <code>+</code> 挥击 <code>+</code></td></tr><tr><td>进食安全半径</td><td><code>hostile_humans/FoodItemGoal</code></td><td>36.0 = 6² 格</td><td>6 格内有东西就不吃</td></tr><tr><td>巡逻半径</td><td><code>humancompanions/PatrolGoal</code></td><td>radius 12</td><td>超出半径 → 停，只转头</td></tr></tbody>
+</table>
+<h3>最关键的是第一行中间那一档</h3>
+<p>原版 Goal 只有「靠近」和「开火」两个分支，<strong>没有「位置刚好、保持住」这个中间态</strong>，<br>所以 NPC 会一路挤到你脸上互相卡位。</p>
+<p>三值化之后这一段是 <code>0</code>，用高权重弃权票表达「位置正好，别推我」——<br>它天然压掉巡逻和其他前进票，又不会像 <code>-</code> 那样把人推回去。</p>
+<hr>
+<h2>跑给你看</h2>
+<p><pre><code class="language-bash">cargo run --release -- sim
+</code></pre></p>
+<p><pre><code>tick  phase   move strafe yaw pitch atk jump use  strategy   说明
+0     idle     0     0     -    0    0   0    0   -          无敌人
+2000  engage   +     -     +    0    +   0    0   -          敌人 ≤32 格 → 追
+4000  engage   +     -     +    0    +   0    0   blitz      敌人 ≤10 格 → 继续压上
+5000  engage   0     -     +    0    0   0    0   feint      敌人 ≤6 格 → 站住（原版没有这一档）
+7000  engage   -     -     +    0    0   +    0   feint      敌人 ≤3 格 → 退半步
+8000  engage   -     -     +    0    0   +    0   ambush     敌人在 10 格 + 苦力怕贴脸 → 规避压过追击
+12000 engage   +     +     +    +    +   0    0   -          被墙挡住：想追但走不动 → 低头砍墙  [stuck]
+</code></pre></p>
+<p><code>move</code> 列三段 <code>+</code> / <code>0</code> / <code>-</code> 就是这次移植的全部意义。</p>
+<p><code>strategy</code> 列是最上层的战法——它不改行为，只调权重，<br>所以你能在同一张表里同时看到「底层战术」和「上层战法」各自在做什么。</p>
+<hr>
+<h2>战法：把《孙子兵法》翻译成加权的票</h2>
+<p>战法不写 <code>if</code>，而是<strong>给某些通道加权</strong>。见 <code>src/strategy.rs</code>。</p>
+<table>
+<thead><tr><th>战法</th><th>加权对象</th><th>效果</th></tr></thead>
+<tbody><tr><td><code>blitz</code></td><td>追击权重 ↑</td><td>敌人远时全力压上</td></tr><tr><td><code>feint</code></td><td>虚招权重 ↑</td><td>反复进出距离带，骗对手先出手</td></tr><tr><td><code>ambush</code></td><td>伏击权重 ↑</td><td>耐心等，等敌人靠近</td></tr><tr><td><code>guard</code></td><td>防守权重 ↑</td><td>血量低时死守不追</td></tr></tbody>
+</table>
+<p>因为战法只改权重，<strong>它和底层战术不会互相覆盖</strong>。同一个表格里能同时看出两层在做什么。</p>
+<hr>
+<h2>相关</h2>
+<ul>
+<li><a href="Architecture.html">架构</a> —— 模块地图</li>
+<li><a href="Perception.html">感知</a> —— 三值的输入从哪来</li>
+<li><a href="bfxh/trit" target="_blank" rel="noopener">https://github.com/bfxh/trit</a> —— 三值逻辑 K3/Ł3/B3 的完整理论</li>
+</ul>
+<div class="pager"><a href="Background-Daemon.html">← 后台守护进程</a><a class="next" href="Perception.html">感知 →</a></div>
+<div class="meta">
+  <span class="badge">trit-agent 维基</span>
+  <span class="badge">bfxh/agent-wiki</span>
+  <span class="badge">Rust · Minecraft · 零依赖</span>
+</div>
+</main>
+</div>
+</body>
+</html>

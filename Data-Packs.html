@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>数据包 · trit-agent 维基</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<a href="Home.html" class="">🏠 首页</a>
+<a href="Getting-Started.html" class="">🚀 上手</a>
+<a href="Hotkeys.html" class="">⌨️ 热键</a>
+<h2>上手</h2><div>
+<a href="Configuration.html" class="">⚙️ 配置</a>
+<a href="Background-Daemon.html" class="">🔧 后台守护进程</a>
+<a href="Tri-Value-FSM.html" class="">🎲 三值状态机</a>
+<a href="Perception.html" class="">👁️ 感知</a>
+</div>
+<h2>原理</h2><div>
+<a href="Gathering.html" class="">🪓 采集</a>
+<a href="Architecture.html" class="">🏗️ 架构</a>
+<a href="Data-Packs.html" class="on">📦 数据包</a>
+<a href="Sensor-Protocol.html" class="">🔌 传感器协议</a>
+</div>
+<h2>Minecraft 侧</h2><div>
+<a href="Crash-Troubleshooting.html" class="">💥 崩溃排查</a>
+<a href="Troubleshooting.html" class="">🔍 没效果怎么查</a>
+<a href="Building.html" class="">🔨 构建与测试</a>
+<a href="Design-Boundaries.html" class="">⚖️ 能力边界</a>
+</div>
+<h2>开发</h2><div>
+<a href="Control-Channels.html" class="">🎛️ 操控方式</a>
+</div>
+</nav>
+<main>
+<h1>数据包</h1><p class="subtitle">数据包、起源包、装包的那些坑</p>
+<p>&gt; 数据包在独立仓库：<strong><a href="bfxh/trit-mc" target="_blank" rel="noopener">https://github.com/bfxh/trit-mc</a></strong></p>
+<p>数据包提供<strong>传感器</strong>——把游戏状态写进聊天栏，AI 从日志里读回来。<br>没有它 AI 也能动，但那是盲动。</p>
+<hr>
+<h2>有什么</h2>
+<p><pre><code>datapacks/
+  squad/             共同意识的执行端：receive 意图 → 改傀儡/狼的 AngryAt
+  trit_bridge/       传感器：快慢双通道，把血量/坐标/敌人/原木/矿石/墙体/俯仰角写进聊天
+archive/origins/     隔离的起源包（不随状态机打包）
+  npc_origins/       给 NPC 挂「起源式」效果（打 tag 生效，默认无副作用）
+  summoner_origin/   召唤师起源：3 只战狼 + 铁卫，召唤物会主动打村民和整合包敌对 NPC
+  summoner_lang/     召唤师起源的中文名称（资源包）
+  origins_zh/        全部汉化（2490 条词条）
+</code></pre></p>
+<hr>
+<h2>装</h2>
+<p><pre><code class="language-bash">git clone git@github.com:bfxh/trit-mc.git &amp;&amp; cd trit-mc
+python scripts/build_datapacks.py --install &quot;E:/MC/MC/profiles/烦人的村民&quot;
+</code></pre></p>
+<p>打包器会自动校验：JSON 合法性、<code>function</code> 引用、方块标签引用、传感器字段名。</p>
+<hr>
+<h2>⚠️ 拷进去 ≠ 装上了</h2>
+<p>这是 MC 侧最大的坑，脚本存在的理由。</p>
+<h3>1. 存档的数据包要单独启用</h3>
+<p>脚本只是把 zip 复制进 <code>saves/&lt;世界&gt;/datapacks/</code>，<br>而游戏只加载 <code>level.dat</code> 里 <code>Enabled</code> 表列出的包。<strong>新放进去的默认是禁用。</strong></p>
+<p>进世界后要敲：</p>
+<p><pre><code>/datapack list                                   # 方括号 = 未启用，花括号 = 已启用
+/datapack enable &quot;file/trit_bridge.zip&quot;
+/datapack enable &quot;file/squad.zip&quot;
+</code></pre></p>
+<p><code>level.dat</code> 用脚本查，别靠猜：</p>
+<p><pre><code class="language-bash">python scripts/save_packs.py status &quot;E:/MC/MC/profiles/烦人的村民&quot;
+python scripts/save_packs.py enable &quot;E:/MC/MC/profiles/烦人的村民&quot; --all
+</code></pre></p>
+<h3>2. 新建的世界里根本没有这些包</h3>
+<p>数据包是<strong>每个存档一份</strong>的。新建世界时 <code>saves/&lt;新世界&gt;/datapacks/</code> 是空目录，<br>起源列表里当然什么都没有。</p>
+<p>装完还得让游戏重新扫一次目录（<strong>退回主菜单再进</strong>），<code>/datapack enable</code> 才认得这个 id。</p>
+<p>&gt; 这是「我明明装过了」最容易翻车的地方：<strong>装的是旧世界，玩的是新世界。</strong></p>
+<h3>3. <code>data modify</code> 只写已存在的路径</h3>
+<p>新生实体的 NBT 里没有 <code>AngryAt</code>，命令会被<strong>静默拒绝</strong>：<br>不报错、不写日志、聊天栏也没提示。</p>
+<p>必须先造字段再 modify：</p>
+<p><pre><code class="language-mcfunction">data merge entity @s {AngryAt:[I;0,0,0,0]}
+data modify entity @s AngryAt set value [I;1,2,3]
+</code></pre></p>
+<p>同理适用于 <code>Owner</code>。</p>
+<h3>4. 资源包和数据包不是一回事</h3>
+<p><code>summoner_lang</code> 是<strong>资源包</strong>，必须放进 <code>resourcepacks/</code> 并在游戏里启用。<br>数据包里的 <code>assets/</code> 不参与加载。</p>
+<hr>
+<h2>别照着 1.12 的老资料改选择器</h2>
+<p><code>@e[type=!player,type=!item]</code>（npc_origins 里在用）<strong>是合法的</strong>：<br>多个 <code>type=!</code> 会 AND 累积，效果是「既不是玩家也不是物品」。</p>
+<p>不合法的是多个<strong>正值</strong> <code>type=cow,type=chicken</code>（实体不可能同时是牛又是鸡）。</p>
+<p>网上流传的「第二个覆盖第一个」出自 Arqade 2015 年的老回答，说的是 1.9 之前的行为；<br>1.13 重写 <code>EntitySelectorParser</code> 之后已经变了。<br>这条我们查过中英文 wiki 确认，<strong>别再按旧说法去「修」了</strong>。</p>
+<hr>
+<h2>起源包会被「照 schema 体检」</h2>
+<p>打包时会自动跑一次 <code>validate_origins.py</code>：</p>
+<p><pre><code class="language-bash">python archive/origins/scripts/validate_origins.py            # 只查本仓库的 summoner_origin
+python archive/origins/scripts/validate_origins.py --all      # 连模组自带的起源一起查
+python archive/origins/scripts/validate_origins.py --selftest # 用坏样本验证校验器本身
+</code></pre></p>
+<p>依据不是文档，而是<strong>这套整合包真实注册的 id</strong>——<br>从 <code>origins-forge</code> 和它内嵌的 <code>apoli</code> 里那些注册表类把常量池抠出来（380 个 id），<br>再拿数据包去比对。查四件事：</p>
+<ul>
+<li><code>type</code> 写没写错（<code>origins:actve_self</code> 这种，游戏只会静默不加载）</li>
+<li>必填字段在不在（<code>active_self</code> 要 <code>entity_action</code>；</li>
+</ul>
+<p>  <code>attribute</code> 的 <code>modifier</code> 要 <code>attribute</code>/<code>operation</code>/<code>value</code>）</p>
+<ul>
+<li><code>powers</code> 引用的文件在不在（跨模组的引用去全局索引查，不误报）</li>
+<li>起源层的 <code>replace:true</code>（<strong>会把别的模组已登记的起源整层顶掉</strong>，选择界面只剩自己的）</li>
+</ul>
+<p><code>--all</code> 会拿 origins++ 的 119 个起源 + 1405 个能力跑一遍：全过，说明校验器不会乱报。</p>
+<hr>
+<h2>汉化</h2>
+<p><strong>2490 / 2490 全译完</strong>（起源 241、能力 2100、容器 10、杂项 139）。</p>
+<p>分片写在 <code>archive/origins/datapacks/origins_zh/_parts/*.json</code>，<br>合并后落到 <code>assets/origins-plus-plus/lang/zh_cn.json</code>：</p>
+<p><pre><code class="language-bash">python archive/origins/scripts/merge_zh.py  --mods &quot;E:/MC/MC/profiles/烦人的村民/mods&quot;
+python archive/origins/scripts/make_origins_zh.py --mods &quot;E:/MC/MC/profiles/烦人的村民/mods&quot; --inject
+</code></pre></p>
+<p><strong>为什么分成片 + 按序号回填</strong>：两千多条如果每条都手写<br><code>power.origins-plus-plus.xxx/yyy.name</code> 这种 key，光 key 就两万多字符，<br>错一个字母就静默失效。</p>
+<p>所以先把英文导出成 <code>序号&lt;TAB&gt;key&lt;TAB&gt;英文</code> 的 TSV，<br>翻译时只写 <code>序号&lt;TAB&gt;中文</code>，由 <code>apply_zh.py</code> 回填——<strong>序号对不上直接报错，不可能错位</strong>。</p>
+<p>TSV 是逐行存的，原文里的换行用 <code>⏎</code> 占位，回填时还原成 <code>\n</code><br>（技能说明里那些换行是 tooltip 排版的一部分）。</p>
+<p><strong>为什么塞进 jar</strong>：模组自带的资源是无条件加载的，<br>而资源包要在「选项 → 资源包」里手动启用，<br>且游戏退出时用内存里的列表覆盖 <code>options.txt</code>——<strong>运行期改文件无效</strong>。</p>
+<p>塞进 jar 只需要重启一次，没有任何手动步骤。模组更新会覆盖掉，重跑上面两条命令即可。</p>
+<hr>
+<h2>一键自检</h2>
+<p><pre><code class="language-bash">python scripts/check_env.py
+</code></pre></p>
+<p>7 项：AI 本体 / 存档数据包 / 传感器 / 数据包格式 / 模组标签 / 协议 / rrls。</p>
+<hr>
+<h2>相关</h2>
+<ul>
+<li><a href="Sensor-Protocol.html">传感器协议</a> —— 协议字段表</li>
+<li><a href="Crash-Troubleshooting.html">崩溃排查</a> —— rrls 崩溃真凶</li>
+<li><a href="Perception.html">感知</a> —— 这些数据怎么被用</li>
+</ul>
+<div class="pager"><a href="Architecture.html">← 架构</a><a class="next" href="Sensor-Protocol.html">传感器协议 →</a></div>
+<div class="meta">
+  <span class="badge">trit-agent 维基</span>
+  <span class="badge">bfxh/agent-wiki</span>
+  <span class="badge">Rust · Minecraft · 零依赖</span>
+</div>
+</main>
+</div>
+</body>
+</html>

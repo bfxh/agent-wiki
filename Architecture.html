@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>架构 · trit-agent 维基</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<a href="Home.html" class="">🏠 首页</a>
+<a href="Getting-Started.html" class="">🚀 上手</a>
+<a href="Hotkeys.html" class="">⌨️ 热键</a>
+<h2>上手</h2><div>
+<a href="Configuration.html" class="">⚙️ 配置</a>
+<a href="Background-Daemon.html" class="">🔧 后台守护进程</a>
+<a href="Tri-Value-FSM.html" class="">🎲 三值状态机</a>
+<a href="Perception.html" class="">👁️ 感知</a>
+</div>
+<h2>原理</h2><div>
+<a href="Gathering.html" class="">🪓 采集</a>
+<a href="Architecture.html" class="on">🏗️ 架构</a>
+<a href="Data-Packs.html" class="">📦 数据包</a>
+<a href="Sensor-Protocol.html" class="">🔌 传感器协议</a>
+</div>
+<h2>Minecraft 侧</h2><div>
+<a href="Crash-Troubleshooting.html" class="">💥 崩溃排查</a>
+<a href="Troubleshooting.html" class="">🔍 没效果怎么查</a>
+<a href="Building.html" class="">🔨 构建与测试</a>
+<a href="Design-Boundaries.html" class="">⚖️ 能力边界</a>
+</div>
+<h2>开发</h2><div>
+<a href="Control-Channels.html" class="">🎛️ 操控方式</a>
+</div>
+</nav>
+<main>
+<h1>架构</h1><p class="subtitle">模块地图与数据流</p>
+<p><pre><code>┌─────────────────────────────────────────────────────────┐
+│  感知层  perceive/                                        │
+│  ├── logtail.rs   尾随 logs/latest.log，解析聊天行        │
+│  └── mod.rs       传感器协议解析（慢/快两通道合并）        │
+└───────────────────────┬─────────────────────────────────┘
+                        │ Sensor（血量/坐标/敌人/墙/方块…）
+                        ▼
+┌─────────────────────────────────────────────────────────┐
+│  决策层  fsm.rs + strategy.rs + npc.rs + behaviors.rs     │
+│  ├── fsm.rs       三值状态机（Channel/Vote/Machine）      │
+│  ├── strategy.rs  战法（孙子兵法五条）→ 只改权重          │
+│  ├── npc.rs       从原版 Goal 移植的战术                   │
+│  └── behaviors.rs 采集/挖矿/战斗的行为组合                 │
+└───────────────────────┬─────────────────────────────────┘
+                        │ 三值票 → 裁决 → 动作
+                        ▼
+┌─────────────────────────────────────────────────────────┐
+│  采集层  gather.rs                                        │
+│  决定「砍什么/挖什么/什么时候不该砍」                    │
+└───────────────────────┬─────────────────────────────────┘
+                        ▼
+┌─────────────────────────────────────────────────────────┐
+│  输入层  act/                                            │
+│  ├── win32.rs     SendInput 键鼠注入 + 窗口识别           │
+│  ├── dry.rs       只记录不执行（离线验证用）               │
+│  └── mod.rs       CommandSink trait                       │
+└─────────────────────────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────┐
+│  共同意识  squad.rs                                       │
+│  一个大脑，多个身体（傀儡/狼），意图级指令                │
+└─────────────────────────────────────────────────────────┘
+</code></pre></p>
+<hr>
+<h2>模块规模</h2>
+<table>
+<thead><tr><th>文件</th><th>行数</th><th>职责</th></tr></thead>
+<tbody><tr><td><code>agent.rs</code></td><td>2459</td><td>主循环、状态编排、聊天指令</td></tr><tr><td><code>gather.rs</code></td><td>1204</td><td>采集与挖矿的判据</td></tr><tr><td><code>daemon.rs</code></td><td>1174</td><td>后台守护进程</td></tr><tr><td><code>main.rs</code></td><td>1167</td><td>CLI、子命令、诊断输出</td></tr><tr><td><code>behaviors.rs</code></td><td>1163</td><td>战斗/移动/交互的行为</td></tr><tr><td><code>act/win32.rs</code></td><td>1010</td><td>Win32 注入、窗口枚举、按键轮询</td></tr><tr><td><code>perceive/mod.rs</code></td><td>802</td><td>协议解析、方块分类</td></tr><tr><td><code>config.rs</code></td><td>757</td><td>配置结构与默认值</td></tr><tr><td><code>fsm.rs</code></td><td>616</td><td>三值状态机核心</td></tr><tr><td><code>squad.rs</code></td><td>409</td><td>傀儡/狼指挥</td></tr><tr><td><code>strategy.rs</code></td><td>375</td><td>战法权重</td></tr><tr><td><code>trit.rs</code></td><td>229</td><td>三进制工具（与 bfxh/trit 同源）</td></tr><tr><td><code>perceive/logtail.rs</code></td><td>221</td><td>日志尾随</td></tr><tr><td><code>npc.rs</code></td><td>217</td><td>原版 Goal 的三值重写</td></tr><tr><td><code>text.rs</code></td><td>136</td><td>CJK 宽度感知的列宽</td></tr><tr><td><strong>合计</strong></td><td><strong>12132</strong></td><td>零第三方依赖</td></tr></tbody>
+</table>
+<hr>
+<h2>关键设计点</h2>
+<h3>感知与决策解耦</h3>
+<p>感知层只管「事实是什么」，决策层只管「事实 → 意图」。<br>中间用 <code>Sensor</code> 结构体传递。</p>
+<p>好处：不开数据包时（<code>dry</code> 通道），决策层照跑，只是输入全是未知 → 全弃权。<br><strong>离线和实机跑的是同一套代码路径。</strong></p>
+<h3>战法不改行为，只改权重</h3>
+<p><code>strategy.rs</code> 里每条战法就是一组权重调整。<br>所以「底层战术」和「上层战法」能在同一张 <code>sim</code> 表里同时看到。</p>
+<h3>注入是最后一层</h3>
+<p><code>act/mod.rs</code> 定义 <code>CommandSink</code> trait，高层只说「做什么」，<br>具体怎么送到游戏由实现决定：</p>
+<ul>
+<li><code>win32.rs</code> —— <code>SendInput</code> 真注入</li>
+<li><code>dry.rs</code> —— 只记录</li>
+<li><code>squad.rs</code> 的 <code>ChatSink</code> —— 走游戏命令框</li>
+</ul>
+<h3>零第三方依赖</h3>
+<p>只用 <code>std</code> + 手写 FFI。需要 Win32 / 注册表 / 时间戳时手写。</p>
+<p><strong>这是硬约束</strong>，不是洁癖：<br>项目要能塞进整合包作者的机器、能长期维护、不能因为某个 crate 停止维护而烂掉。</p>
+<hr>
+<h2>跨仓库契约</h2>
+<p><pre><code>bfxh/trit-agent (Rust)          bfxh/trit-mc (MC 侧)
+  perceive/mod.rs                  datapacks/trit_bridge/
+  ├─ PROTOCOL_FIELDS ──────────►   │  tellraw 打 &lt;TRIT hp=...&gt;
+  │      │                          │
+  │      │  trit-agent protocol    │  聊天框
+  │      ▼                          ▼
+  └─ parse_patch  ◄────────────  logs/latest.log
+</code></pre></p>
+<p><strong>字段名单由 Rust 侧导出</strong>（<code>trit-agent protocol --json</code>），<br>MC 侧用它校验自己打的字段名对不对。</p>
+<p>Rust 侧有测试锁住「名单和解析器分支逐字一致」。</p>
+<hr>
+<h2>相关</h2>
+<ul>
+<li><a href="Tri-Value-FSM.html">三值状态机</a> —— 决策层的核心</li>
+<li><a href="Perception.html">感知</a> —— 感知层细节</li>
+<li><a href="Background-Daemon.html">后台守护进程</a> —— daemon.rs 做了什么</li>
+<li><a href="Control-Channels.html">操控方式</a> —— CommandSink 的扩展方式</li>
+</ul>
+<div class="pager"><a href="Gathering.html">← 采集</a><a class="next" href="Data-Packs.html">数据包 →</a></div>
+<div class="meta">
+  <span class="badge">trit-agent 维基</span>
+  <span class="badge">bfxh/agent-wiki</span>
+  <span class="badge">Rust · Minecraft · 零依赖</span>
+</div>
+</main>
+</div>
+</body>
+</html>

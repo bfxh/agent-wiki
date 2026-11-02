@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>传感器协议 · trit-agent 维基</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<a href="Home.html" class="">🏠 首页</a>
+<a href="Getting-Started.html" class="">🚀 上手</a>
+<a href="Hotkeys.html" class="">⌨️ 热键</a>
+<h2>上手</h2><div>
+<a href="Configuration.html" class="">⚙️ 配置</a>
+<a href="Background-Daemon.html" class="">🔧 后台守护进程</a>
+<a href="Tri-Value-FSM.html" class="">🎲 三值状态机</a>
+<a href="Perception.html" class="">👁️ 感知</a>
+</div>
+<h2>原理</h2><div>
+<a href="Gathering.html" class="">🪓 采集</a>
+<a href="Architecture.html" class="">🏗️ 架构</a>
+<a href="Data-Packs.html" class="">📦 数据包</a>
+<a href="Sensor-Protocol.html" class="on">🔌 传感器协议</a>
+</div>
+<h2>Minecraft 侧</h2><div>
+<a href="Crash-Troubleshooting.html" class="">💥 崩溃排查</a>
+<a href="Troubleshooting.html" class="">🔍 没效果怎么查</a>
+<a href="Building.html" class="">🔨 构建与测试</a>
+<a href="Design-Boundaries.html" class="">⚖️ 能力边界</a>
+</div>
+<h2>开发</h2><div>
+<a href="Control-Channels.html" class="">🎛️ 操控方式</a>
+</div>
+</nav>
+<main>
+<h1>传感器协议</h1><p class="subtitle">跨仓库的唯一集成点</p>
+<p><code>trit_bridge</code> 用 <code>tellraw</code> 把感知量写进聊天，Rust 侧再按 <code>k=v</code> 解析回来。</p>
+<p><strong>这是两个仓库之间唯一的集成点</strong>，而且中间没有任何握手。</p>
+<hr>
+<h2>静默失败</h2>
+<p>&gt; 字段拼错一个字母，两边<strong>都不报错</strong>，只是这个量永远等于「没感知」。</p>
+<p>不报错、不崩溃、不写日志——AI 就是「看不见」了。<br>所以这条线必须被交叉校验。</p>
+<hr>
+<h2>两条通道</h2>
+<table>
+<thead><tr><th>通道</th><th>前缀</th><th>频率</th><th>字段</th></tr></thead>
+<tbody><tr><td>慢</td><td><code>&lt;TRIT </code></td><td>1 秒（20 tick）</td><td><code>hp food x y z h d c w wd o od t p</code></td></tr><tr><td>快</td><td><code>&lt;TRITF </code></td><td>100ms（2 tick）</td><td><code>wal b1 bd s p</code></td></tr></tbody>
+</table>
+<p>格式：</p>
+<p><pre><code>&lt;TRIT  hp=200 food=17 x=123 y=-601 z=88 h=3 d=6 c=0 w=6 wd=-1 o=4 od=1 t=15200 p=150&gt;
+&lt;TRITF wal=5 b1=2 bd=3 s=1 p=280&gt;
+</code></pre></p>
+<p><code>wal</code> 是 8 位掩码（八个方向有没有墙），<code>b1</code>/<code>bd</code> 是方块类别码，<br><code>s</code> 是台阶，<code>p</code> 是俯仰角。</p>
+<hr>
+<h2>完整字段表（18 个）</h2>
+<table>
+<thead><tr><th>字段</th><th>含义</th><th>通道</th></tr></thead>
+<tbody><tr><td><code>hp</code></td><td>血量（×10）</td><td>慢</td></tr><tr><td><code>food</code></td><td>饥饿值</td><td>慢</td></tr><tr><td><code>x</code> <code>y</code> <code>z</code></td><td>坐标（×10）</td><td>慢</td></tr><tr><td><code>h</code></td><td>敌人数</td><td>慢</td></tr><tr><td><code>d</code></td><td>最近敌人距离档（0~5）</td><td>慢</td></tr><tr><td><code>c</code></td><td>危险方块档（岩浆等）</td><td>慢</td></tr><tr><td><code>w</code></td><td>原木距离档</td><td>慢</td></tr><tr><td><code>wd</code></td><td>原木方向</td><td>慢</td></tr><tr><td><code>o</code></td><td>矿石距离档</td><td>慢</td></tr><tr><td><code>od</code></td><td>矿石方向</td><td>慢</td></tr><tr><td><code>t</code></td><td>游戏内时间</td><td>慢</td></tr><tr><td><code>p</code></td><td>俯仰角（×10）</td><td>慢+快</td></tr><tr><td><code>wal</code></td><td>墙体掩码（8 位）</td><td>快</td></tr><tr><td><code>b1</code></td><td>准星方块类别</td><td>快</td></tr><tr><td><code>bd</code></td><td>脚下方块类别</td><td>快</td></tr><tr><td><code>s</code></td><td>台阶标志</td><td>快</td></tr></tbody>
+</table>
+<hr>
+<h2>契约：名单由 Rust 侧导出</h2>
+<p>字段名单<strong>不在 MC 仓库手写</strong>。手写名单会跟代码脱节，<br>改名时两边一起过时，检查反而变成「两边都错所以通过」。</p>
+<p><strong>代码是唯一事实来源</strong>：名单在 Rust 的 <code>perceive::PROTOCOL_FIELDS</code> 里。</p>
+<p><pre><code class="language-bash">trit-agent protocol          # 一行一个字段
+trit-agent protocol --json   # 脚本读这个
+# [&quot;hp&quot;,&quot;food&quot;,&quot;x&quot;,&quot;y&quot;,&quot;z&quot;,&quot;h&quot;,&quot;d&quot;,&quot;c&quot;,&quot;w&quot;,&quot;wd&quot;,&quot;o&quot;,&quot;od&quot;,&quot;t&quot;,&quot;p&quot;,&quot;wal&quot;,&quot;b1&quot;,&quot;bd&quot;,&quot;s&quot;]
+</code></pre></p>
+<h3>守门测试</h3>
+<p>Rust 侧有一个测试盯着「名单和 <code>parse_patch</code> 的 match 分支<strong>逐字对应</strong>」：</p>
+<p><pre><code class="language-rust">#[test]
+fn protocol_fields_match_parser_branches() {
+    // 从源码抠出 match 分支，和 PROTOCOL_FIELDS 逐项比
+}
+</code></pre></p>
+<p>改了解析器忘了改名单（或反过来），这里立刻红。</p>
+<p>&gt; 这个测试当场抓到我自己的 bug：提取逻辑被测试文件里同名的字符串干扰，<br>&gt; 抠出来只有 1 个分支——<strong>测试自己写错了，测试就抓不到测试自己</strong>。</p>
+<hr>
+<h2>交叉校验</h2>
+<p>MC 侧的打包器每次都拿这份名单校验数据包实际输出的字段。查两件事：</p>
+<ol>
+<li>text 里声明的协议字段名（<code>&lt;TRIT hp=</code> 的 <code>hp</code>）必须在 Rust 白名单里；</li>
+<li><code>k=</code> 标签的个数必须等于 score 片段的个数（多一个标签＝写了标签没取值）。</li>
+</ol>
+<p><strong>不查</strong>「标签和取值是不是同一个量」：<br>score 片段取的是记分板假人名（<code>px</code>/<code>hst</code>/<code>dst</code>），名字随便起，<br>跟协议字段名无关，比对没有意义——一开始写了这条，结果 24 条全是假阳性。</p>
+<h3>拿不到名单怎么办</h3>
+<p>校验器会<strong>显式报告「跳过」</strong>，不假装通过：</p>
+<ul>
+<li>首选：调 <code>trit-agent protocol --json</code></li>
+<li>降级：读旁边 Rust 仓库的源码（<code>../trit-agent/src/perceive/mod.rs</code>）</li>
+<li>两条都拿不到：报告跳过</li>
+</ul>
+<hr>
+<h2>合并两帧</h2>
+<p>Rust 侧把两条通道合并到同一份状态：每条帧只带自己有的字段，<br>缺的字段保持原值（<code>SensorPatch</code> → <code>Sensor::apply</code>）。</p>
+<p>不这么做的话，快帧每 100ms 就会把「有几个怪」清成 0——<br><strong>AI 会以为世界永远安全。</strong></p>
+<hr>
+<h2>关掉传感器</h2>
+<p><pre><code>/function trit_bridge:off      # 关掉整个传感器
+/function trit_bridge:on       # 打开
+/function trit_bridge:fast_on  # 只开快通道
+</code></pre></p>
+<p>快通道默认关，由 AI 在采集/挖矿时按需打开，收手后延迟 2.5 秒关。</p>
+<hr>
+<h2>相关</h2>
+<ul>
+<li><a href="Perception.html">感知</a> —— 延迟怎么量的</li>
+<li><a href="Data-Packs.html">数据包</a> —— 数据包怎么做的</li>
+<li><a href="Building.html">构建与测试</a> —— 怎么跑校验</li>
+</ul>
+<div class="pager"><a href="Data-Packs.html">← 数据包</a><a class="next" href="Crash-Troubleshooting.html">崩溃排查 →</a></div>
+<div class="meta">
+  <span class="badge">trit-agent 维基</span>
+  <span class="badge">bfxh/agent-wiki</span>
+  <span class="badge">Rust · Minecraft · 零依赖</span>
+</div>
+</main>
+</div>
+</body>
+</html>

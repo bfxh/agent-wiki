@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>操控方式 · trit-agent 维基</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<a href="Home.html" class="">🏠 首页</a>
+<a href="Getting-Started.html" class="">🚀 上手</a>
+<a href="Hotkeys.html" class="">⌨️ 热键</a>
+<h2>上手</h2><div>
+<a href="Configuration.html" class="">⚙️ 配置</a>
+<a href="Background-Daemon.html" class="">🔧 后台守护进程</a>
+<a href="Tri-Value-FSM.html" class="">🎲 三值状态机</a>
+<a href="Perception.html" class="">👁️ 感知</a>
+</div>
+<h2>原理</h2><div>
+<a href="Gathering.html" class="">🪓 采集</a>
+<a href="Architecture.html" class="">🏗️ 架构</a>
+<a href="Data-Packs.html" class="">📦 数据包</a>
+<a href="Sensor-Protocol.html" class="">🔌 传感器协议</a>
+</div>
+<h2>Minecraft 侧</h2><div>
+<a href="Crash-Troubleshooting.html" class="">💥 崩溃排查</a>
+<a href="Troubleshooting.html" class="">🔍 没效果怎么查</a>
+<a href="Building.html" class="">🔨 构建与测试</a>
+<a href="Design-Boundaries.html" class="">⚖️ 能力边界</a>
+</div>
+<h2>开发</h2><div>
+<a href="Control-Channels.html" class="on">🎛️ 操控方式</a>
+</div>
+</nav>
+<main>
+<h1>操控方式</h1><p class="subtitle">以后要接对讲机、语音、第二屏的落地清单</p>
+<p>这张表就是「以后要接对讲机、语音、第二屏」的落地清单。<br>一条操控方式 = 一个 <code>CommandSink</code> 实现，加上这里的一行登记。</p>
+<p><strong>为什么要有这张表</strong>：能操控什么，取决于有什么通道。<br>通道不是代码里随便加的几个 <code>if</code>，而是「游戏能收什么、能发什么」的物理事实。<br>把事实列清楚，别人才知道从哪接手、<strong>哪条路走不通</strong>。</p>
+<hr>
+<h2>现状</h2>
+<table>
+<thead><tr><th>ID</th><th>通道</th><th>方向</th><th>状态</th><th>依赖</th><th>说明</th></tr></thead>
+<tbody><tr><td><code>kb-mouse</code></td><td><code>SendInput</code> 注入键盘鼠标</td><td>出</td><td>✅ 已实现</td><td>Windows</td><td>逐帧、全保真。移动/视角/攻击全走这条</td></tr><tr><td><code>chat-command</code></td><td>游戏命令框（<code>/</code> + 打字）</td><td>出</td><td>✅ 已实现</td><td>开作弊</td><td>意图级。<code>squad</code> 用它指挥傀儡和狼</td></tr><tr><td><code>log-tail</code></td><td>尾随 <code>logs/latest.log</code></td><td>入</td><td>✅ 已实现</td><td>无</td><td>数据包 <code>tellraw</code> → 聊天 → 日志。慢通道 1 秒一报</td></tr><tr><td><code>log-tail-fast</code></td><td>同上，快通道 <code>&lt;TRITF</code></td><td>入</td><td>✅ 已实现</td><td>数据包</td><td>2 tick 一报（100ms），只报瞄准角/墙体掩码/准星与脚下方块</td></tr><tr><td><code>datapack-score</code></td><td>记分板 / NBT</td><td>出</td><td>✅ 已实现</td><td>数据包</td><td>走 <code>data modify</code> / <code>scoreboard</code>，比打字快但需要包配合</td></tr><tr><td><code>dry</code></td><td>只记录不执行</td><td>出</td><td>✅ 已实现</td><td>无</td><td>离线验证整条链路，CI 默认通道</td></tr><tr><td><code>block-ray</code></td><td>数据包打方块射线</td><td>入</td><td>✅ 已实现</td><td>数据包</td><td>采集用它找原木/矿石。8 方向 × 3 档 × 近距 3 个俯仰</td></tr><tr><td><code>block-classify</code></td><td>把方块归成 7 类写进 score</td><td>入</td><td>✅ 已实现</td><td>数据包</td><td>准星正对/脚下各 6 条 <code>if block</code>，靠「后写的赢」定优先级</td></tr><tr><td><code>walkie-talkie</code></td><td>对讲机（串口/音频调制）</td><td>双向</td><td>🚧 待认领</td><td>硬件</td><td>见下方「对讲机为什么值得做」</td></tr><tr><td><code>voice-stt</code></td><td>语音识别</td><td>入</td><td>🚧 待认领</td><td>麦克风</td><td>「打那只苦力怕」→ 意图</td></tr><tr><td><code>voice-tts</code></td><td>语音播报</td><td>出</td><td>🚧 待认领</td><td>扬声器</td><td>战法切换、血量告急</td></tr><tr><td><code>named-pipe</code></td><td>命名管道 / Unix socket</td><td>双向</td><td>🚧 待认领</td><td>无</td><td>让别的进程（脚本、手机 App）接管</td></tr><tr><td><code>http-api</code></td><td>本地 HTTP</td><td>双向</td><td>🚧 待认领</td><td>需要 server</td><td>手机上点按钮下指令</td></tr><tr><td><code>websocket</code></td><td>WebSocket</td><td>双向</td><td>🚧 待认领</td><td>需要 mod</td><td>服务端 mod 是最干净的通道，但要求装 mod</td></tr><tr><td><code>gamepad</code></td><td>XInput 手柄</td><td>出</td><td>🚧 待认领</td><td>手柄</td><td>手柄的摇杆本身就是连续量，比键鼠更贴合三值之外的部分</td></tr><tr><td><code>second-screen</code></td><td>第二屏 / 手机镜像</td><td>出</td><td>🚧 待认领</td><td>网络</td><td>显示意图树、当前战法</td></tr><tr><td><code>replay-file</code></td><td>录制 / 回放</td><td>入</td><td>🚧 待认领</td><td>无</td><td>把一次战斗录成决策流，用于复盘和回归测试</td></tr></tbody>
+</table>
+<p>图例：✅ 能用 · 🚧 只有设计没有代码 · ❌ 走不通</p>
+<hr>
+<h2>为什么有些路走不通（省得别人白试）</h2>
+<p>这几条是查证过的，<strong>别再试了</strong>：</p>
+<table>
+<thead><tr><th>想法</th><th>结论</th><th>原因</th></tr></thead>
+<tbody><tr><td>直接操控傀儡和狼的移动</td><td>❌</td><td>原版 AI 写死在 Goal 里，没有输入注入点。能改的只有 <code>AngryAt</code> / <code>AngerTime</code> 两个 NBT 字段</td></tr><tr><td>给村民/僵尸穿上我们的行为</td><td>❌</td><td>同上。而且只有 <code>wolf</code> / <code>iron_golem</code> / <code>polar_bear</code> 的 Goal 会读 <code>AngryAt</code></td></tr><tr><td>直接 <code>data modify ... AngryAt set</code> 给刚召出来的宠物设目标</td><td>❌</td><td><code>data modify</code> 只写<strong>已经存在</strong>的路径。新生实体的 NBT 里没有 <code>AngryAt</code>，命令会被<strong>静默拒绝</strong>：不报错、不写日志、聊天栏也没提示。必须先 <code>data merge entity @s {AngryAt:[I;0,0,0,0]}</code> 把字段造出来再 modify。同理适用于 <code>Owner</code></td></tr><tr><td>用 <code>SendKeys</code> / 消息队列发键</td><td>❌</td><td>Minecraft 走 LWJGL 的原始键盘状态，收不到 WM_KEYDOWN。必须 <code>SendInput</code></td></tr><tr><td>读游戏内存拿坐标</td><td>⚠️ 不建议</td><td>可行但每个版本都要重做偏移，还会被杀软当外挂。日志通道够用</td></tr><tr><td>让数据包读本地文件</td><td>❌</td><td>数据包没有文件系统访问</td></tr><tr><td>让数据包「数出附近有几块原木」</td><td>❌</td><td><code>if blocks</code> 只比对两个区域是否相同，不能计数；<code>if block</code> 只测单点。想数就得铺满射线，成本指数上升</td></tr><tr><td>外部注入换手持物品</td><td>⚠️</td><td>数字键能切快捷栏，但 AI 读不到「第几格是什么」，开环切等于赌博。要么玩家自己换好，要么写 mod</td></tr><tr><td>让数据包算出「最近的方块距离」</td><td>⚠️</td><td><code>if block</code> 只测单点，要测距离就得逐格铺射线。所以墙体和准星方块只测 1 格，远处靠慢通道的档位射线</td></tr><tr><td>让 <code>#minecraft:solid</code> 一把抓所有固体</td><td>❌</td><td>原版没有这个 tag。只能自己拼（16 个 tag + 96 个方块），装了 mod 方块得手工补</td></tr></tbody>
+</table>
+<hr>
+<h2>怎么实现一条新通道</h2>
+<h3>1. 实现 trait</h3>
+<p><pre><code class="language-rust">use trit_agent::squad::{CommandSink, Intent};
+
+pub struct WalkieTalkie {
+    port: std::fs::File,
+}
+
+impl CommandSink for WalkieTalkie {
+    fn kind(&amp;self) -&gt; &amp;&#x27;static str {
+        &quot;walkie-talkie&quot;
+    }
+
+    /// 返回 false = 没发出去（对方没回应、串口断了）。
+    /// **不要吞掉失败** —— 上层靠这个返回值决定下一拍要不要重试。
+    fn send(&amp;mut self, cmd: &amp;str) -&gt; bool {
+        // 长指令压成短码：「/function squad:engage」→ 单字节 0xE1
+        let code = match cmd {
+            c if c.ends_with(&quot;:engage&quot;) =&gt; 0xE1,
+            c if c.ends_with(&quot;:recall&quot;) =&gt; 0xE3,
+            _ =&gt; return false,
+        };
+        self.port.write_all(&amp;[code]).is_ok()
+    }
+}
+</code></pre></p>
+<h3>2. 接到配置上</h3>
+<p>目前 <code>ControlChannel</code> 是枚举（<code>Off</code> / <code>Dry</code> / <code>Chat</code>），加新通道要改三处：</p>
+<ol>
+<li><code>src/config.rs</code> 的 <code>ControlChannel</code> 加一个变体 + <code>parse</code> / <code>as_str</code></li>
+<li><code>src/agent.rs</code> 的 <code>drive_squad</code> 加一个 <code>match</code> 分支</li>
+<li><code>DEFAULT_TOML</code> 里的注释</li>
+</ol>
+<p><strong>这是已知的扩展摩擦点。</strong><br>如果你要做第 4、第 5 条通道，值得先把这里改成<br>「字符串 → 工厂函数」的注册表——这个重构本身就是一个很好的第一个 PR。</p>
+<h3>3. 登记</h3>
+<p>在上面的表格里加一行，写清方向（出/入/双向）和依赖。</p>
+<p><strong>依赖要写实</strong>：需要硬件就说需要硬件，需要装 mod 就说需要装 mod。</p>
+<h3>4. 加测试</h3>
+<p>不需要真的对讲机也能测——用一个假串口（<code>Vec&lt;u8&gt;</code> 当缓冲区）验证：</p>
+<ul>
+<li>指令被压成正确的短码</li>
+<li><code>send</code> 失败时返回 false（而不是静默成功）</li>
+<li>上层（<code>Squad</code>）在收到 false 时会重试，不会把状态记成「已发送」</li>
+</ul>
+<p><code>src/squad.rs</code> 的 <code>failed_send_is_retried_not_swallowed</code> 就是这个模式的样板。</p>
+<hr>
+<h2>对讲机为什么值得做</h2>
+<p>不是玩梗。它解决一个真问题：<strong>移动端操控</strong>。</p>
+<p>键鼠注入要求你和游戏在同一台机器上。但末日生存整合包经常要挂机——<br>你去干别的，想隔一会儿问一句「现在什么情况」。<br>对讲机（或任何低带宽音频通道）<br>是唯一能在<strong>不装 mod、不开端口、不走网络协议栈</strong>的前提下传意图的东西。</p>
+<p>代价也明确：带宽极低，一条指令只能压成几个字节。<br>所以它只能承载 <code>squad</code> 的四个意图 + 几个战法开关，<strong>承载不了逐帧操控</strong>。</p>
+<p>&gt; <strong>这也是为什么 <code>CommandSink</code> 设计成意图级而不是帧级</strong>——<br>&gt; 低级通道接进来就能用，不用为它单独降级一套 API。</p>
+<hr>
+<h2>认领流程</h2>
+<ol>
+<li>开一个 issue，用「认领操控方式」模板</li>
+<li>在表里把状态改成 <code>🚧 进行中（@你的名字）</code></li>
+<li>PR 里带上：实现 + 至少 3 个测试 + 表格里的一行</li>
+<li>通道只要能用 <code>dry</code> 通道录下来的同一条指令跑通，就算通过验收</li>
+</ol>
+<hr>
+<h2>相关</h2>
+<ul>
+<li><a href="Architecture.html">架构</a> —— <code>CommandSink</code> 在哪一层</li>
+<li><a href="Tri-Value-FSM.html">三值状态机</a> —— 为什么是意图级而不是帧级</li>
+</ul>
+<div class="pager"><a href="Design-Boundaries.html">← 能力边界</a></div>
+<div class="meta">
+  <span class="badge">trit-agent 维基</span>
+  <span class="badge">bfxh/agent-wiki</span>
+  <span class="badge">Rust · Minecraft · 零依赖</span>
+</div>
+</main>
+</div>
+</body>
+</html>

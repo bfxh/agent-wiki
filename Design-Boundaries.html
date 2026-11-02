@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>能力边界 · trit-agent 维基</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<a href="Home.html" class="">🏠 首页</a>
+<a href="Getting-Started.html" class="">🚀 上手</a>
+<a href="Hotkeys.html" class="">⌨️ 热键</a>
+<h2>上手</h2><div>
+<a href="Configuration.html" class="">⚙️ 配置</a>
+<a href="Background-Daemon.html" class="">🔧 后台守护进程</a>
+<a href="Tri-Value-FSM.html" class="">🎲 三值状态机</a>
+<a href="Perception.html" class="">👁️ 感知</a>
+</div>
+<h2>原理</h2><div>
+<a href="Gathering.html" class="">🪓 采集</a>
+<a href="Architecture.html" class="">🏗️ 架构</a>
+<a href="Data-Packs.html" class="">📦 数据包</a>
+<a href="Sensor-Protocol.html" class="">🔌 传感器协议</a>
+</div>
+<h2>Minecraft 侧</h2><div>
+<a href="Crash-Troubleshooting.html" class="">💥 崩溃排查</a>
+<a href="Troubleshooting.html" class="">🔍 没效果怎么查</a>
+<a href="Building.html" class="">🔨 构建与测试</a>
+<a href="Design-Boundaries.html" class="on">⚖️ 能力边界</a>
+</div>
+<h2>开发</h2><div>
+<a href="Control-Channels.html" class="">🎛️ 操控方式</a>
+</div>
+</nav>
+<main>
+<h1>能力边界</h1><p class="subtitle">知道做不到什么比知道能做什么更有用</p>
+<p>&gt; 这一页是<strong>诚实的部分</strong>。知道它做不到什么，比知道它能做什么更有用。</p>
+<hr>
+<h2>它能做的</h2>
+<ul>
+<li>稳定的战斗节奏（挥击 / 跳劈 / 换边）</li>
+<li>卡血撤退、低血站桩回血</li>
+<li>死亡后点重生</li>
+<li>巡逻扫视</li>
+<li>砍树、挖矿（带完整门控）</li>
+<li>随时接管与交还（F8）</li>
+<li>一个大脑指挥傀儡和狼</li>
+</ul>
+<hr>
+<h2>它做不到的</h2>
+<h3>没有视觉，也不知道敌人方位</h3>
+<p>数据包只给「<strong>最近敌人多远</strong>」，<strong>不给方向</strong>。</p>
+<p>所以视角不会朝敌人转（<code>Yaw</code> 只在待命时才扫视），也不会主动走位绕后。</p>
+<p>这是最本质的限制——<strong>它是个「近身反应」系统，不是「战场感知」系统</strong>。</p>
+<h3>不开数据包时只有「日志里写了什么」</h3>
+<p>也就是死亡消息和你打的字。</p>
+<p>这时候 <code>assume_threat = false</code>（默认）会让它站着不动——<strong>这是刻意的</strong>，<br>猜错方向的代价比不动大。</p>
+<h3>反应延迟 ≥ 1 个传感器周期</h3>
+<p>慢通道 1 秒（敌人/资源），动手期间快通道 100ms（瞄准/碰撞）。</p>
+<p>这是「日志 → 状态机」这条链的<strong>物理下限</strong>，高频节拍抹不掉它。<br>想要更低只能写 mod 直接读内存。</p>
+<h3>不认路、不会寻路</h3>
+<p>没有 <code>baritone</code> 那种路径规划。</p>
+<p>采集是「我看见了、直线走过去」，前方被挡就换目标，<strong>不会绕</strong>。</p>
+<h3>不换工具</h3>
+<p>木镐挖钻石矿会掉、会挖很久。</p>
+<p><code>gather_max_chop_ms</code>（25 秒）是唯一兜底——挖不动就放弃并冷却。<br>外部注入没法可靠地换槽位（数字键能切快捷栏，但 AI 读不到「第几格是什么」，<br>开环切等于赌博）。</p>
+<h3>「看见墙」是近似的</h3>
+<p>八个方向各测 1 格、靠自己拼的方块标签（16 个原版 tag + 96 个方块）。</p>
+<p>漏掉某个方块 = 以为能过去然后撞上，由 <code>stuck</code> 检测兜底，<strong>不会崩</strong>。</p>
+<h3>鼠标灵敏度要手调</h3>
+<p>MC 的「每像素转角」跟灵敏度设置强相关，<br>默认 <code>look_gain = 1.35</code> 是按灵敏度 0.5 估的。<br>转太快就调小，转太慢就调大。</p>
+<h3>手眼要分开看</h3>
+<p>AI 会抢你的鼠标和键盘。<strong>按 <code>F8</code> 关掉才是安全的对话姿势。</strong></p>
+<hr>
+<h2>验证到哪一步了</h2>
+<h3>已验证</h3>
+<ul>
+<li><strong>209 个测试</strong>：K3 真值表、平衡三进制往返、迟滞不抖、弃权优先、</li>
+</ul>
+<p>  日志解析与半行/截断/乱序、快慢通道补丁合并、墙体方位映射、采集门控、<br>  挖矿三条地形判据、视线闭环自适应等待、感知延迟实测、快通道开关时机、<br>  <strong>协议字段名单与解析器分支逐字一致</strong></p>
+<ul>
+<li>release 构建 <strong>0 警告</strong>，<code>cargo clippy --all-targets</code> <strong>Error = 0</strong></li>
+<li><code>sim --gather</code> / <code>sim --mine</code> / <code>selftest</code> 实跑</li>
+<li>数据包 JSON 与 <code>function</code> / 方块标签引用校验</li>
+<li>端到端（假 GLFW30 窗口 + 注入 F8）：挂上窗口 → F8 接管 → F8 交还 →</li>
+</ul>
+<p>  自动回等待态，200Hz 满帧</p>
+<ul>
+<li>守护进程自愈：连续强杀 3 次，全部 1 分钟内复活</li>
+</ul>
+<h3>没验证</h3>
+<ul>
+<li>原木/矿石射线的<strong>实际命中率</strong>（多高、多远、树干细的时候漏不漏）</li>
+<li><code>rotated ~D 0</code> 在 1.18.2 的<strong>取值语义</strong></li>
+<li><code>#minecraft:logs</code> / <code>#trit_bridge:ores</code> / <code>#trit_bridge:solid</code> 到底覆盖了哪些方块</li>
+<li>快通道每秒 10 行对聊天框的<strong>实际观感</strong></li>
+</ul>
+<p>  （嫌吵就 <code>gather_fast_bridge = false</code>，AI 会自动回落到 1 秒档，只是瞄得慢一点）</p>
+<p>&gt; 这几个都只能进游戏才能确认。<br>&gt; 手上没把握就先用 <code>gather_quota = 1</code> 试一趟，先砍树再试挖矿。</p>
+<h3>诚实说明</h3>
+<p>历史上<strong>出过两次真实崩溃</strong>（见 <a href="Crash-Troubleshooting.html">崩溃排查</a>）。<br>两次都定位到了字节码级，第一次是我们自己的 bug（待机时改窗口标题），<br>第二次是整合包自带 mod 的 bug（rrls）。</p>
+<p>但守护进程<strong>曾经静默死亡</strong>这件事，<br>我<strong>没能 100% 证明</strong>那次死亡就是 panic——<br>当时进程已消失、没有崩溃转储，事后无法取证。</p>
+<p>排除了崩溃/误杀/进程树连带/切片越界四条路，<br>剩下唯一符合全部证据的解释是 panic + 无输出。<br>修复方向对症（panic 现在会落盘、再死会自愈），<br>但<strong>首次死亡的确切触发点仍需实机验证来确认</strong>。</p>
+<hr>
+<h2>相关</h2>
+<ul>
+<li><a href="Tri-Value-FSM.html">三值状态机</a> —— 「猜错方向代价大」是三值设计的直接后果</li>
+<li><a href="Gathering.html">采集</a> —— 采集层的具体上限</li>
+<li><a href="Crash-Troubleshooting.html">崩溃排查</a> —— 那两次崩溃的完整记录</li>
+</ul>
+<div class="pager"><a href="Building.html">← 构建与测试</a><a class="next" href="Control-Channels.html">操控方式 →</a></div>
+<div class="meta">
+  <span class="badge">trit-agent 维基</span>
+  <span class="badge">bfxh/agent-wiki</span>
+  <span class="badge">Rust · Minecraft · 零依赖</span>
+</div>
+</main>
+</div>
+</body>
+</html>

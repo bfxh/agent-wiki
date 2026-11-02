@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>崩溃排查 · trit-agent 维基</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<a href="Home.html" class="">🏠 首页</a>
+<a href="Getting-Started.html" class="">🚀 上手</a>
+<a href="Hotkeys.html" class="">⌨️ 热键</a>
+<h2>上手</h2><div>
+<a href="Configuration.html" class="">⚙️ 配置</a>
+<a href="Background-Daemon.html" class="">🔧 后台守护进程</a>
+<a href="Tri-Value-FSM.html" class="">🎲 三值状态机</a>
+<a href="Perception.html" class="">👁️ 感知</a>
+</div>
+<h2>原理</h2><div>
+<a href="Gathering.html" class="">🪓 采集</a>
+<a href="Architecture.html" class="">🏗️ 架构</a>
+<a href="Data-Packs.html" class="">📦 数据包</a>
+<a href="Sensor-Protocol.html" class="">🔌 传感器协议</a>
+</div>
+<h2>Minecraft 侧</h2><div>
+<a href="Crash-Troubleshooting.html" class="on">💥 崩溃排查</a>
+<a href="Troubleshooting.html" class="">🔍 没效果怎么查</a>
+<a href="Building.html" class="">🔨 构建与测试</a>
+<a href="Design-Boundaries.html" class="">⚖️ 能力边界</a>
+</div>
+<h2>开发</h2><div>
+<a href="Control-Channels.html" class="">🎛️ 操控方式</a>
+</div>
+</nav>
+<main>
+<h1>崩溃排查</h1><p class="subtitle">不是渲染引擎的问题</p>
+<p>&gt; <strong>不是渲染引擎的问题。</strong><br>&gt; 本文记录的两个真实崩溃都是 <strong>Java 空指针（NullPointerException）</strong>，<br>&gt; 跟 GPU / 驱动 / 光影 / 材质渲染完全无关。</p>
+<hr>
+<h2>一键诊断</h2>
+<p><pre><code class="language-bash">python scripts/diagnose_crash.py          # 诊断最近一次崩溃
+python scripts/diagnose_crash.py --all    # 列出所有历史崩溃
+</code></pre></p>
+<p>（在 bfxh/trit-mc 仓库里）</p>
+<p>输出包含：崩溃点栈帧、是否已进世界、<code>&lt;TRIT&gt;</code> 条数、守护进程时间线、<br><strong>按崩溃时刻判定 AI 有无接管</strong>。</p>
+<hr>
+<h2>真凶：rrls</h2>
+<p>整合包「The Annoying Villagers by PugilistSteve42834」自带的<br><strong>rrls</strong>（Remove Reloading Screen，作者 dimadencep），<br>藏在 <code>mods/TheAnnoyingVillagersByPugilist_Steve_4_28 (34).jar</code> 里。</p>
+<h3>崩溃链（字节码级钉死）</h3>
+<p><code>rrls-common.mixins.json</code> → <code>MinecraftClientMixin</code>：</p>
+<p><pre><code class="language-java">@Redirect(method = {&quot;tick&quot;, &quot;handleInputEvents&quot;},
+          at = @At(value = &quot;FIELD&quot;, target = &quot;...Minecraft;overlay:...&quot;))
+private Overlay fixOverlayUsage(Minecraft mc) {
+    return Rrls.tryGetOverlay(mc.overlay);
+}
+</code></pre></p>
+<p><code>Rrls.tryGetOverlay</code> 字节码原文：</p>
+<p><pre><code>if (overlay instanceof SplashAccessor &amp;&amp; splash.isAttached())
+    return null;      // ← 这里
+return overlay;
+</code></pre></p>
+<p>原版 <code>Minecraft.runTick()</code> 靠 <code>overlay == null</code> 判断「现在不该处理按键」。<br>rrls 在加载界面还挂着时返回 null，把这条判断<strong>反转</strong>了：</p>
+<p><pre><code>正常：  加载界面挂着 -&gt; overlay != null -&gt; 跳过 handleKeybinds
+有 rrls：加载界面挂着 -&gt; overlay == null -&gt; 照样跑 handleKeybinds
+                                        -&gt; this.player 还是 null -&gt; NPE
+</code></pre></p>
+<p>所以崩溃发生在<strong>进世界之前</strong>（<code>player == null</code>）。</p>
+<h3>为什么栈里看不到它</h3>
+<p>崩溃栈 5 帧全是原版帧。这正是<strong>定位的线索</strong>：</p>
+<p>&gt; 因为它用 mixin 的 <code>@Redirect</code> <strong>改写了控制流</strong>，<br>&gt; 不是插入代码——处理器返回后 vanilla 继续执行，<br>&gt; 所以栈里只剩 vanilla 帧，没有 mod 帧。</p>
+<p>顺着这个线索去查 mixin 的 <strong>refmap</strong>（mixin 目标写在 refmap/json 里，<br><strong>不在 class 常量池</strong>——搜常量池是找不到的），全量扫描后<br>只有 <code>Rrls-common-refmap.json</code> 同时映射 <code>m_91279_</code>（handleKeybinds）<br>和 <code>m_91398_</code>（runTick）。</p>
+<h3>为什么 <code>rrls.toml</code> 的 <code>enabled = false</code> 没用</h3>
+<p><code>config/rrls.toml</code> 里有 <code>enabled = true</code>，看着像开关。<br>但那是 AutoConfig 的配置项，只影响模组自己的配置逻辑——<br><code>fixOverlayUsage</code> 方法体里<strong>没有任何 enabled 判断</strong><br>（字节码只有一条 <code>getfield f_91081_</code> → <code>tryGetOverlay</code> → <code>areturn</code>），<br>mixin 该注入还是注入。</p>
+<p><strong>唯一可靠的办法是不让这个 jar 被 Forge 加载。</strong></p>
+<h3>处置</h3>
+<p><pre><code class="language-bash">python scripts/toggle_rrls.py status    # 查看
+python scripts/toggle_rrls.py disable   # 禁用（防崩溃）
+python scripts/toggle_rrls.py enable    # 恢复
+</code></pre></p>
+<ul>
+<li>改名成 <code>.jar.disabled</code>（Forge 只加载 <code>.jar</code> 结尾的文件）</li>
+<li><strong>先备份</strong>到 <code>mods/.trit-agent-backup/</code>，不是删除，可还原</li>
+<li>自动扫描含 rrls 的 jar，不写死文件名（整合包更新后编号会变）</li>
+<li>该 jar 里<strong>只有 rrls</strong>，禁用它零副作用</li>
+</ul>
+<p>代价只是加载/资源重载时会短暂显示原版进度条界面。</p>
+<hr>
+<h2>第二次崩溃：AI 干没干？</h2>
+<p><strong>没有。</strong> 这是教科书级的干净对照：</p>
+<table>
+<thead><tr><th>时刻</th><th>事件</th></tr></thead>
+<tbody><tr><td>19:20:22</td><td>守护进程启动</td></tr><tr><td>19:21:52</td><td>守护进程最后一条日志</td></tr><tr><td>19:22:31</td><td><strong>ModLauncher 启动</strong>（游戏才开始）</td></tr><tr><td>19:23:13</td><td>崩溃</td></tr></tbody>
+</table>
+<p>崩溃时守护进程<strong>已经死了 90 秒</strong>，进程根本不存在，<strong>零按键注入</strong>。</p>
+<p>对比第一次崩溃：守护进程当时是活着的（怀疑它待机时改窗口标题）。<br>那次已经修了——<strong>待机期完全不碰窗口标题</strong>，<br><code>update_badge()</code> / <code>refresh_badge()</code> 只在接管时才写。<br>新增回归测试 <code>idle_agent_never_touches_the_window_title</code> 锁住这条。</p>
+<hr>
+<h2>排除法：怎么确认不是别的 mod</h2>
+<p>字节码级排查用到的手段，记下来省得重复：</p>
+<table>
+<thead><tr><th>手段</th><th>用途</th></tr></thead>
+<tbody><tr><td><code>javap -c -p</code></td><td>反汇编字节码</td></tr><tr><td><code>javap -l -p</code></td><td>行号表（定位到 Minecraft.java:1836）</td></tr><tr><td><code>javap -v</code></td><td>mixin 注解</td></tr><tr><td>搜 class 常量池</td><td>找引用了某字段/方法的类</td></tr><tr><td>搜 mixin refmap</td><td><strong>找谁在改写控制流</strong>（栈里看不到 mod 时用这个）</td></tr></tbody>
+</table>
+<p>被逐一排除的候选（各有 null 保护或不碰 handleKeybinds）：<br>Iris / Oculus、ExtraSounds、CombatRoll、BetterCombat、<br>WeaponMaster、ShieldExp、Guns、PassiveShield。</p>
+<hr>
+<h2>SRG 映射速查</h2>
+<p>调试时用得上：</p>
+<table>
+<thead><tr><th>SRG</th><th>Yarn</th><th>含义</th></tr></thead>
+<tbody><tr><td><code>m_91279_</code></td><td><code>handleKeybinds</code></td><td>按键处理</td></tr><tr><td><code>m_91398_</code></td><td><code>runTick</code></td><td>每 tick 主循环</td></tr><tr><td><code>m_91383_</code></td><td><code>tick(boolean)</code></td><td></td></tr><tr><td><code>f_91074_</code></td><td><code>Minecraft.player</code></td><td>玩家实体</td></tr><tr><td><code>f_91081_</code></td><td><code>Minecraft.overlay</code></td><td>当前界面</td></tr><tr><td><code>f_91080_</code></td><td><code>Minecraft.screen</code></td><td></td></tr><tr><td><code>m_6117_()</code></td><td><code>public boolean</code></td><td></td></tr></tbody>
+</table>
+<hr>
+<h2>如果还崩</h2>
+<p>rrls 排除后如果还崩，说明有第二个元凶。跑：</p>
+<p><pre><code class="language-bash">python scripts/diagnose_crash.py
+</code></pre></p>
+<p>把输出发出来。诊断脚本会给出：崩溃点栈帧、mod 名单、<br>以及<strong>按崩溃时刻判定 AI 有无接管</strong>的结论。</p>
+<hr>
+<h2>相关</h2>
+<ul>
+<li><a href="Troubleshooting.html">没效果怎么查</a> —— 不是崩溃，是「没效果」</li>
+<li><a href="Data-Packs.html">数据包</a> —— 数据包侧的坑</li>
+<li><a href="Background-Daemon.html">后台守护进程</a> —— 守护进程为什么曾经静默死亡</li>
+</ul>
+<div class="pager"><a href="Sensor-Protocol.html">← 传感器协议</a><a class="next" href="Troubleshooting.html">没效果怎么查 →</a></div>
+<div class="meta">
+  <span class="badge">trit-agent 维基</span>
+  <span class="badge">bfxh/agent-wiki</span>
+  <span class="badge">Rust · Minecraft · 零依赖</span>
+</div>
+</main>
+</div>
+</body>
+</html>

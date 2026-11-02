@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>后台守护进程 · trit-agent 维基</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<a href="Home.html" class="">🏠 首页</a>
+<a href="Getting-Started.html" class="">🚀 上手</a>
+<a href="Hotkeys.html" class="">⌨️ 热键</a>
+<h2>上手</h2><div>
+<a href="Configuration.html" class="">⚙️ 配置</a>
+<a href="Background-Daemon.html" class="on">🔧 后台守护进程</a>
+<a href="Tri-Value-FSM.html" class="">🎲 三值状态机</a>
+<a href="Perception.html" class="">👁️ 感知</a>
+</div>
+<h2>原理</h2><div>
+<a href="Gathering.html" class="">🪓 采集</a>
+<a href="Architecture.html" class="">🏗️ 架构</a>
+<a href="Data-Packs.html" class="">📦 数据包</a>
+<a href="Sensor-Protocol.html" class="">🔌 传感器协议</a>
+</div>
+<h2>Minecraft 侧</h2><div>
+<a href="Crash-Troubleshooting.html" class="">💥 崩溃排查</a>
+<a href="Troubleshooting.html" class="">🔍 没效果怎么查</a>
+<a href="Building.html" class="">🔨 构建与测试</a>
+<a href="Design-Boundaries.html" class="">⚖️ 能力边界</a>
+</div>
+<h2>开发</h2><div>
+<a href="Control-Channels.html" class="">🎛️ 操控方式</a>
+</div>
+</nav>
+<main>
+<h1>后台守护进程</h1><p class="subtitle">进游戏直接按 F8 —— 装一次，永久有效</p>
+<p>&gt; <strong>进游戏直接按 F8</strong> —— 这是整套东西的最终形态。</p>
+<hr>
+<h2>为什么要有守护进程</h2>
+<p>热键是<strong>进程里注册的全局钩子</strong>。进程不在，F8 就是死的。</p>
+<p>之前的设计是「双击 <code>启动AI.bat</code> → 开一个黑窗口 → 切到游戏 → 按 F8」。<br>问题是那个黑窗口一关就没了，而且切窗口的动作本身就会丢焦点。</p>
+<p>守护进程把它变成：<strong>装一次，永久有效，进游戏按 F8 就行</strong>。</p>
+<hr>
+<h2>它做什么</h2>
+<p><pre><code>守护进程（常驻，无窗口）
+    ↓ 等游戏窗口出现（每 30 秒报一次状态）
+    ↓ 找到窗口（按类名 GLFW* + 标题关键字）
+    ↓ 挂上，但不接管 —— 等你按 F8
+    ↓ 你按 F8 → 接管
+    ↓ 游戏关了 → 松手，回到等待
+</code></pre></p>
+<p><strong>关键设计：守护模式不自动接管。</strong><br>前台模式是「双击就开跑」，守护模式是「按 F8 才接管」——<br>后者才符合「直接按 F8 就可以」。</p>
+<p>而且守护进程：</p>
+<ul>
+<li><strong>不抢焦点</strong>（<code>grab_focus_on_start = false</code>）</li>
+<li><strong>不自动切视角</strong>（<code>switch_view_on_start = false</code>）</li>
+</ul>
+<p>理由同上：守护进程是常驻的，抢焦点意味着你正在写代码时窗口被游戏抢走。</p>
+<hr>
+<h2>静默死亡：一个查了三层的坑</h2>
+<h3>现象</h3>
+<p>守护进程 19:20:22 启动，19:21:52 之后日志直接断掉、进程消失。<br>用户按键时<strong>根本没有任何进程在监听 F8</strong>。</p>
+<p>但外部<strong>没有任何痕迹</strong>：</p>
+<ul>
+<li>Windows 事件日志无记录</li>
+<li>WER 无崩溃转储</li>
+<li>Defender 无误杀记录</li>
+</ul>
+<h3>三层叠加的「静默」</h3>
+<ol>
+<li><strong>守护进程是 <code>windows_subsystem = &quot;windows&quot;</code> 编译的</strong> —— 没有控制台。</li>
+</ol>
+<p>   Rust 默认的 panic 处理往 stderr 打印，而 GUI 子系统的 stderr 指向无效句柄，<br>   <strong>一个字都出不来</strong>。</p>
+<ol>
+<li><strong>release profile 是 <code>panic = &quot;abort&quot;</code></strong> —— panic 直接终止进程，</li>
+</ol>
+<p>   <code>catch_unwind</code> 也拦不住。</p>
+<ol>
+<li>进程消失后没有任何外部痕迹。</li>
+</ol>
+<p>排查过程排除了所有其他可能：</p>
+<table>
+<thead><tr><th>假设</th><th>怎么排除的</th></tr></thead>
+<tbody><tr><td>窗口枚举切片越界 panic</td><td>探针实测 <code>GetClassNameW</code> 在缓冲区不足时返回<strong>实际拷贝数</strong>（buf16 对 24 字符类名返回 15），不是 MSDN 说的「所需长度」</td></tr><tr><td>被父进程树连带杀掉</td><td>跨工具调用的子进程存活实验：心跳持续增长，<strong>不成立</strong></td></tr><tr><td>访问违例</td><td>事件日志 + WER 转储，<strong>无记录</strong></td></tr><tr><td>Defender 误杀</td><td>Defender 事件日志，<strong>无记录</strong></td></tr></tbody>
+</table>
+<p>结论：只剩「panic 且无处输出」这一条路。</p>
+<h3>修法</h3>
+<p><strong>1. panic 落盘</strong></p>
+<p><code>install_panic_hook()</code> 把 panic 现场（消息 + 文件行号 + 线程）写进<br><code>trit-agent-daemon.log</code>。这是唯一能抓住它的时机。</p>
+<p><strong>2. release 改 <code>panic = &quot;unwind&quot;</code></strong></p>
+<p>abort 下 <code>catch_unwind</code> 无效；unwind 换来的是<br>「某一轮跑炸了，守护进程照样活着，F8 继续有效」。</p>
+<p><strong>3. 循环级 panic 隔离</strong></p>
+<p>「跑一轮」整体抽成 <code>run_one_round()</code>，主循环用 <code>catch_unwind</code> 包住。<br>panic 只炸掉当前这一轮（最多丢一两秒），下一轮重新挂窗口即可——<br>相比「守护进程彻底死掉」这个代价可忽略。</p>
+<hr>
+<h2>自愈：死了要能自己回来</h2>
+<p>光「不崩」不够，得<strong>崩了还有人拉起来</strong>。</p>
+<h3>计划任务</h3>
+<p>注册 Windows 计划任务 <code>trit-agent-daemon</code>：</p>
+<ul>
+<li><code>LogonTrigger</code> —— 登录即启动</li>
+<li><strong>每分钟重复触发</strong> —— 主力</li>
+<li><code>RestartOnFailure</code>（间隔 1 分钟，999 次）</li>
+<li><code>ExecutionTimeLimit = PT0S</code> —— <strong>不限运行时长</strong></li>
+</ul>
+<p>  （默认值是「任务运行 3 天后强制终止」，对常驻守护是颗定时炸弹）</p>
+<ul>
+<li><code>MultipleInstancesPolicy = IgnoreNew</code> —— 不重复起</li>
+<li><code>DisallowStartIfOnBatteries = false</code> —— 笔记本拔电源也继续跑</li>
+<li><code>RunLevel = LeastPrivilege</code> —— 不用管理员</li>
+</ul>
+<h3>「每分钟重复触发」为什么是主力</h3>
+<p>实测发现：<strong><code>RestartOnFailure</code> 在外部强杀时不触发</strong>。<br><code>LastTaskResult</code> 变成 <code>0xFFFFFFFF</code>（<code>SCHED_S_TASK_HAS_NOT_RUN</code>）——<br>任务计划程序没把强杀当成「失败」。</p>
+<p>而「每分钟重复触发」不依赖退出码：daemon 靠命名互斥量保证单实例，<br>已经在跑时新实例立刻退出（<code>IgnoreNew</code> 也跳过重复启动）。</p>
+<p><strong>实测：连续强杀 3 次，全部在 1 分钟内复活</strong><br>（20:10:01 / 20:11:01 / 20:12:01 / 20:13:01，间隔精确到秒）。</p>
+<h3>两套并存</h3>
+<p><code>HKCU\Software\Microsoft\Windows\CurrentVersion\Run</code> 保留着，互为备份。</p>
+<p>但注意：注册表指向的<strong>必须是 <code>%LOCALAPPDATA%\trit-agent\</code> 里的副本</strong>，<br>不能指向 <code>target/release</code>——<code>cargo clean</code> 会删掉，自启就静默失效了。</p>
+<hr>
+<h2>日志在哪</h2>
+<p><pre><code>%LOCALAPPDATA%\trit-agent\trit-agent-daemon.log
+</code></pre></p>
+<p>格式：<code>[2026-11-02 20:10:01] 等待游戏窗口……</code></p>
+<p>&gt; 时间戳是<strong>本地时间</strong>。早期版本用的是 <code>SystemTime::now()</code>（UTC），<br>&gt; 比崩溃报告和 MC 日志差 8 小时——排查时这条证据就废了。</p>
+<hr>
+<h2>查状态</h2>
+<p><pre><code class="language-bash">target/release/trit-agent.exe status
+</code></pre></p>
+<p><pre><code>守护进程: 运行中
+自动重启: 已启用（计划任务 trit-agent-daemon）
+日志: C:\Users\...\AppData\Local\trit-agent\trit-agent-daemon.log
+最近日志:
+  [2026-11-02 20:10:01] 等待游戏窗口（按窗口类名 GLFW* 匹配）……
+</code></pre></p>
+<p>&gt; 「自动重启」这一行很重要。<br>&gt; 只说「未运行」会让人以为彻底没救了——实际上死了会被拉起来。</p>
+<hr>
+<h2>停掉</h2>
+<p><pre><code class="language-bash">target/release/trit-agent.exe stop
+</code></pre></p>
+<p><code>stop</code> 会置位命名停机事件（<code>Global\trit-agent-stop</code>），<br>守护进程在<strong>主循环</strong>里查这个信号。</p>
+<p>&gt; 这个信号事件必须是<strong>手动复位</strong>的：<br>&gt; 自动复位会被第一个等待者吃掉，而停机信号有两个查询点（主循环 + 外层循环）。<br>&gt;<br>&gt; 命名对象的权限位用错也<strong>不会报错，只会静默失败</strong>：<br>&gt; <code>OpenMutexW</code> 必须用 <code>SYNCHRONIZE</code>（<code>EVENT_MODIFY_STATE</code> 是事件的位），<br>&gt; 否则「进程明明在跑但 status 说没跑」。</p>
+<hr>
+<h2>排错表</h2>
+<table>
+<thead><tr><th>现象</th><th>原因</th><th>怎么办</th></tr></thead>
+<tbody><tr><td>status 说未运行，但进程在</td><td>互斥量权限位用错</td><td>查 <code>OpenMutexW</code> 的 <code>SYNCHRONIZE</code></td></tr><tr><td>按 F8 没反应，status 说运行中</td><td>有第二个实例在抢</td><td><code>status</code> 会报；停掉前台那个</td></tr><tr><td>日志停在某一行，之后没了</td><td>panic（历史 bug）</td><td>现在会落盘，看日志里有没有 <code>!!! 守护进程 panic</code></td></tr><tr><td>自启不生效</td><td>注册表指向 <code>target/release</code></td><td>必须指向 <code>%LOCALAPPDATA%\trit-agent\</code> 的副本</td></tr><tr><td>配置读不到</td><td>相对路径没锚定</td><td>配置查找顺序：exe 旁边 → 安装目录 → cwd</td></tr></tbody>
+</table>
+<hr>
+<h2>相关</h2>
+<ul>
+<li><a href="Hotkeys.html">热键</a> —— F8 的行为细节</li>
+<li><a href="Troubleshooting.html">没效果怎么查</a> —— 通用排查顺序</li>
+</ul>
+<div class="pager"><a href="Configuration.html">← 配置</a><a class="next" href="Tri-Value-FSM.html">三值状态机 →</a></div>
+<div class="meta">
+  <span class="badge">trit-agent 维基</span>
+  <span class="badge">bfxh/agent-wiki</span>
+  <span class="badge">Rust · Minecraft · 零依赖</span>
+</div>
+</main>
+</div>
+</body>
+</html>

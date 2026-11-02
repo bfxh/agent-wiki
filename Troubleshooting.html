@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>没效果怎么查 · trit-agent 维基</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<a href="Home.html" class="">🏠 首页</a>
+<a href="Getting-Started.html" class="">🚀 上手</a>
+<a href="Hotkeys.html" class="">⌨️ 热键</a>
+<h2>上手</h2><div>
+<a href="Configuration.html" class="">⚙️ 配置</a>
+<a href="Background-Daemon.html" class="">🔧 后台守护进程</a>
+<a href="Tri-Value-FSM.html" class="">🎲 三值状态机</a>
+<a href="Perception.html" class="">👁️ 感知</a>
+</div>
+<h2>原理</h2><div>
+<a href="Gathering.html" class="">🪓 采集</a>
+<a href="Architecture.html" class="">🏗️ 架构</a>
+<a href="Data-Packs.html" class="">📦 数据包</a>
+<a href="Sensor-Protocol.html" class="">🔌 传感器协议</a>
+</div>
+<h2>Minecraft 侧</h2><div>
+<a href="Crash-Troubleshooting.html" class="">💥 崩溃排查</a>
+<a href="Troubleshooting.html" class="on">🔍 没效果怎么查</a>
+<a href="Building.html" class="">🔨 构建与测试</a>
+<a href="Design-Boundaries.html" class="">⚖️ 能力边界</a>
+</div>
+<h2>开发</h2><div>
+<a href="Control-Channels.html" class="">🎛️ 操控方式</a>
+</div>
+</nav>
+<main>
+<h1>没效果怎么查</h1><p class="subtitle">每一件事都是静默的</p>
+<p>&gt; 不是崩溃的话看这篇。崩溃见 <a href="Crash-Troubleshooting.html">崩溃排查</a>。</p>
+<p><strong>每一件事都是静默的</strong>：包没启用、<code>data modify</code> 写不进去、模组 jar 被更新覆盖、<br><code>allowCommands=0</code> 让 <code>/function</code> 直接被拒——<strong>游戏一律不报错</strong>。</p>
+<p>所以排查的唯一入口是那条自检命令：</p>
+<p><pre><code class="language-bash">python scripts/check_env.py
+</code></pre></p>
+<p>（在 bfxh/trit-mc 仓库里，7 项全绿才算就绪）</p>
+<hr>
+<h2>排查顺序</h2>
+<h3>1. AI 进程在跑吗</h3>
+<p><pre><code class="language-bash">target/release/trit-agent.exe status
+</code></pre></p>
+<ul>
+<li>「未运行」→ 双击 <code>安装后台.bat</code>（见 <a href="Background-Daemon.html">后台守护进程</a>）</li>
+<li>「运行中」但按 F8 没反应 → 有第二个实例在抢同一个互斥量，</li>
+</ul>
+<p>  或者游戏窗口没被认出来</p>
+<h3>2. 认得出游戏窗口吗</h3>
+<p><pre><code class="language-bash">target/release/trit-agent.exe probe
+</code></pre></p>
+<p>会列出候选窗口的 <code>标题 [类名]</code>——光看标题根本分不清启动器和游戏。</p>
+<p>&gt; 整合包的窗口标题是 <code>Annoying Villagers - Annoying Villagers</code>，<br>&gt; <strong>整串没有 "Minecraft"</strong>。真正决定匹配的是<strong>类名</strong> <code>GLFW30</code>。</p>
+<h3>3. 传感器有数据吗</h3>
+<p>接管后看游戏聊天栏，应该每秒刷一行：</p>
+<p><pre><code>&lt;TRIT hp=185 food=17 x=123 y=-601 z=88 h=3&gt;
+</code></pre></p>
+<p><strong>看不到这行 = 感知断了</strong>，AI 会一直弃权（这是设计，不是 bug）。</p>
+<p>逐条查：</p>
+<table>
+<thead><tr><th>检查</th><th>怎么查</th></tr></thead>
+<tbody><tr><td>包装了吗</td><td><code>ls saves/*/datapacks/trit_bridge.zip</code></td></tr><tr><td>启用了吗</td><td>游戏里 <code>/datapack list</code>，花括号才是启用</td></tr><tr><td>是当前世界吗</td><td>新建世界的 <code>datapacks/</code> 是空的</td></tr><tr><td>标签作废了吗</td><td><code>check_env.py</code> 的 [5] 项</td></tr><tr><td>字段名对吗</td><td><code>check_env.py</code> 的 [6] 项</td></tr></tbody>
+</table>
+<h3>4. 配置文件对吗</h3>
+<p><pre><code class="language-bash">grep log_path trit-agent.toml
+</code></pre></p>
+<p>指向的文件必须存在（游戏至少启动过一次才会生成 <code>logs/latest.log</code>）。</p>
+<p><strong>这条路径配错 = AI 永远「没感知」</strong> → 所有票都是 <code>0</code> → 永远弃权 → 角色站着不动。<br>这是最常见的表现。</p>
+<h3>5. 感知延迟正常吗</h3>
+<p>游戏里敲：</p>
+<p><pre><code>!gather lag
+</code></pre></p>
+<p>会显示实测的感知间隔和「等多久」。异常值（比如装了快通道还是 1400ms）<br>说明快通道没开或数据包没更新。</p>
+<hr>
+<h2>症状对照表</h2>
+<table>
+<thead><tr><th>症状</th><th>最可能的原因</th></tr></thead>
+<tbody><tr><td>按 F8 没反应</td><td>进程没在跑 / 有第二个实例抢互斥量</td></tr><tr><td>角色站着不动</td><td>没有感知数据（查聊天栏有没有 <code>&lt;TRIT</code>）</td></tr><tr><td>角色动了但撞墙</td><td>「看见墙」是近似的，漏了某个方块（<code>stuck</code> 检测会兜底）</td></tr><tr><td>一直原地转圈</td><td>墙体位序写反了（yaw 往右加，位 1 是正右方）</td></tr><tr><td>挖矿挖不动</td><td>没换工具（木镐挖钻石矿会掉）</td></tr><tr><td>挖矿挖错东西</td><td>判据不全（岩浆/矿石分类靠 <code>#trit_bridge:ores</code> 标签）</td></tr><tr><td>夜里不干活</td><td><code>gather_night = false</code>（默认）</td></tr><tr><td>干活干一半停了</td><td>配额用完（<code>gather_quota</code>）或血量/饥饿不够</td></tr><tr><td>宠物乱跑</td><td>只删了 <code>AngryAt</code> 没清 <code>AngerTime</code>，或反过来</td></tr><tr><td>看不到宠物被指挥</td><td><code>squad = true</code> 且 <code>squad_control = &quot;chat&quot;</code></td></tr><tr><td>AI 不理 <code>/function</code></td><td><code>allowCommands=0</code>，或者世界没开作弊</td></tr><tr><td>窗口切出去 AI 就停</td><td><code>focus_pause = true</code>（默认，行为正确）</td></tr><tr><td>鼠标转太快/太慢</td><td><code>look_gain</code>，默认 1.35 是按灵敏度 0.5 估的</td></tr><tr><td>改了代码没生效</td><td>exe 比源码旧，重新 <code>cargo build --release</code></td></tr></tbody>
+</table>
+<hr>
+<h2>数据包侧的那些坑</h2>
+<p>详见 <a href="Data-Packs.html">数据包</a> 的「拷进去 ≠ 装上了」。摘要：</p>
+<ol>
+<li>拷进 <code>saves/&lt;世界&gt;/datapacks/</code> <strong>≠ 启用</strong>——要 <code>/datapack enable</code></li>
+<li>新建的世界是空的——<strong>装的是旧世界，玩的是新世界</strong></li>
+<li><code>data modify</code> 只写已存在的路径——新实体要先 <code>data merge</code> 造字段</li>
+<li>资源包和数据包不是一回事——<code>summoner_lang</code> 要放 <code>resourcepacks/</code></li>
+</ol>
+<hr>
+<h2>崩溃了</h2>
+<p>见 <a href="Crash-Troubleshooting.html">崩溃排查</a>。</p>
+<hr>
+<h2>相关</h2>
+<ul>
+<li><a href="Building.html">构建与测试</a> —— 编译与自检</li>
+<li><a href="Configuration.html">配置</a> —— 每个配置项的行为</li>
+</ul>
+<div class="pager"><a href="Crash-Troubleshooting.html">← 崩溃排查</a><a class="next" href="Building.html">构建与测试 →</a></div>
+<div class="meta">
+  <span class="badge">trit-agent 维基</span>
+  <span class="badge">bfxh/agent-wiki</span>
+  <span class="badge">Rust · Minecraft · 零依赖</span>
+</div>
+</main>
+</div>
+</body>
+</html>

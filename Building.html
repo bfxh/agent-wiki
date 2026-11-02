@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>构建与测试 · trit-agent 维基</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<a href="Home.html" class="">🏠 首页</a>
+<a href="Getting-Started.html" class="">🚀 上手</a>
+<a href="Hotkeys.html" class="">⌨️ 热键</a>
+<h2>上手</h2><div>
+<a href="Configuration.html" class="">⚙️ 配置</a>
+<a href="Background-Daemon.html" class="">🔧 后台守护进程</a>
+<a href="Tri-Value-FSM.html" class="">🎲 三值状态机</a>
+<a href="Perception.html" class="">👁️ 感知</a>
+</div>
+<h2>原理</h2><div>
+<a href="Gathering.html" class="">🪓 采集</a>
+<a href="Architecture.html" class="">🏗️ 架构</a>
+<a href="Data-Packs.html" class="">📦 数据包</a>
+<a href="Sensor-Protocol.html" class="">🔌 传感器协议</a>
+</div>
+<h2>Minecraft 侧</h2><div>
+<a href="Crash-Troubleshooting.html" class="">💥 崩溃排查</a>
+<a href="Troubleshooting.html" class="">🔍 没效果怎么查</a>
+<a href="Building.html" class="on">🔨 构建与测试</a>
+<a href="Design-Boundaries.html" class="">⚖️ 能力边界</a>
+</div>
+<h2>开发</h2><div>
+<a href="Control-Channels.html" class="">🎛️ 操控方式</a>
+</div>
+</nav>
+<main>
+<h1>构建与测试</h1><p class="subtitle">编译、测试、自检</p>
+<h2>环境</h2>
+<ul>
+<li>Rust 工具链：https://rustup.rs</li>
+<li>Python 3.9+（跑打包脚本）</li>
+<li>Windows 10/11（<code>SendInput</code>、命名互斥量、计划任务都是 Windows 专属）</li>
+</ul>
+<hr>
+<h2>编译</h2>
+<p><pre><code class="language-bash">git clone git@github.com:bfxh/trit-agent.git &amp;&amp; cd trit-agent
+cargo build --release
+</code></pre></p>
+<p>产物：<code>target/release/trit-agent.exe</code></p>
+<p><strong>零第三方依赖</strong>——只用 <code>std</code> + 手写 FFI。<br>这是硬约束：项目要能塞进整合包作者的机器、能长期维护、<br>不能因为某个 crate 停止维护而烂掉。</p>
+<p>需要 Win32 / 注册表 / 时间戳时手写 FFI，<br>注册表走 <code>reg.exe</code> 命令行（不用 advapi32，避免 UTF-16 编码坑）。</p>
+<hr>
+<h2>测试</h2>
+<p><pre><code class="language-bash">cargo test --release
+</code></pre></p>
+<p><strong>209 个测试</strong>。覆盖：</p>
+<table>
+<thead><tr><th>范围</th><th>内容</th></tr></thead>
+<tbody><tr><td><code>fsm.rs</code></td><td>K3 真值表、迟滞不抖、弃权优先</td></tr><tr><td><code>trit.rs</code></td><td>平衡三进制往返</td></tr><tr><td><code>perceive/</code></td><td>日志解析（半行/截断/乱序）、快慢通道补丁合并、墙体方位映射、<strong>协议字段名单与解析器逐字一致</strong></td></tr><tr><td><code>gather.rs</code></td><td>采集门控、挖矿三条地形判据</td></tr><tr><td><code>behaviors.rs</code></td><td>视线闭环自适应等待、感知延迟实测、快通道开关时机</td></tr><tr><td><code>squad.rs</code></td><td>发送失败会重试，不被吞掉</td></tr><tr><td><code>daemon.rs</code></td><td>panic 落盘、任务 XML（重启/时限/引号/转义）</td></tr><tr><td><code>act/win32.rs</code></td><td>待机期不碰窗口标题、切片 clamp</td></tr></tbody>
+</table>
+<h3>静态分析</h3>
+<p><pre><code class="language-bash">cargo clippy --release --all-targets
+</code></pre></p>
+<p>标准是 <strong>Error = 0</strong>。</p>
+<hr>
+<h2>自检</h2>
+<p><pre><code class="language-bash">target/release/trit-agent.exe selftest
+</code></pre></p>
+<p>9 项，含 200Hz 节拍校验：</p>
+<p><pre><code>目标 200 Hz  · 实际 200.5 Hz · 401 拍 / 2.000s
+目标 1000 Hz · 实际 1000.5 Hz · 2001 拍 / 2.000s
+</code></pre></p>
+<hr>
+<h2>模拟</h2>
+<p>不连游戏也能跑整条决策链：</p>
+<p><pre><code class="language-bash">cargo run --release -- sim              # 战斗决策
+cargo run --release -- sim --gather     # 采集
+cargo run --release -- sim --mine       # 挖矿
+</code></pre></p>
+<p><pre><code>tick  phase   move strafe yaw pitch atk jump use  strategy   说明
+0     idle     0     0     -    0    0   0    0   -          无敌人
+2000  engage   +     -     +    0    +   0    0   -          敌人 ≤32 格 → 追
+5000  engage   0     -     +    0    0   0    0   feint      敌人 ≤6 格 → 站住（原版没有这一档）
+8000  engage   -     -     +    0    0   +    0   ambush     敌人在 10 格 + 苦力怕贴脸 → 规避压过追击
+12000 engage   +     +     +    +    +   0    0   -          被墙挡住：想追但走不动 → 低头砍墙  [stuck]
+</code></pre></p>
+<hr>
+<h2>诊断命令</h2>
+<table>
+<thead><tr><th>命令</th><th>作用</th></tr></thead>
+<tbody><tr><td><code>trit-agent probe</code></td><td>列出候选窗口（标题 + 类名），看认不认得出游戏</td></tr><tr><td><code>trit-agent status</code></td><td>守护进程状态 + 自动重启是否启用</td></tr><tr><td><code>trit-agent protocol</code></td><td>导出传感器协议字段名</td></tr><tr><td><code>trit-agent protocol --json</code></td><td>同上，给脚本读</td></tr><tr><td><code>trit-agent selftest</code></td><td>自检 9 项</td></tr><tr><td><code>trit-agent init</code></td><td>生成默认配置</td></tr></tbody>
+</table>
+<hr>
+<h2>环境自检（Minecraft 侧）</h2>
+<p><pre><code class="language-bash">cd ../trit-mc
+python scripts/check_env.py
+</code></pre></p>
+<p>7 项：AI 本体 / 存档数据包 / 传感器 / 数据包格式 / 模组标签 / 协议 / rrls。</p>
+<p><strong>任何一项红了都会告诉你怎么修。</strong></p>
+<hr>
+<h2>打包（MC 侧）</h2>
+<p><pre><code class="language-bash">cd ../trit-mc
+python scripts/build_datapacks.py                        # 只打包
+python scripts/build_datapacks.py --install &lt;实例&gt;       # 打包 + 装进实例
+python scripts/build_datapacks.py --selftest             # 验证校验器本身有效
+</code></pre></p>
+<p>打包器会自动跑：</p>
+<ul>
+<li>JSON 合法性</li>
+<li><code>function</code> 引用存在性</li>
+<li>方块标签引用存在性</li>
+<li><strong>传感器字段名与 Rust 白名单交叉校验</strong></li>
+<li>起源包 schema 体检</li>
+</ul>
+<hr>
+<h2>端到端验证（不用真游戏）</h2>
+<p>用<strong>假 GLFW30 窗口</strong>（类名 <code>GLFW30</code>）+ <code>keybd_event</code> 注入 F8 复现：</p>
+<p><pre><code class="language-bash"># 1. 造一个类名 GLFW30、标题同整合包的窗口
+# 2. 守护进程会挂上它（日志出现「挂上窗口」）
+# 3. 注入 F8 → 日志出现「AI 已接管」
+# 4. 再注入 F8 → 「已交还控制权」
+</code></pre></p>
+<p>&gt; <strong>必须用 <code>keybd_event</code>，不能用 <code>SendInput</code></strong>：<br>&gt; <code>SendInput</code> 注入的按键 <code>GetAsyncKeyState</code> 读不到（实测 <code>0x0000</code>），<br>&gt; 而 <code>keybd_event</code> 实测能读到 <code>0x8001 down=true</code>。<br>&gt; 真实物理按键不受影响——这是<strong>自动化验证</strong>的问题，不是功能问题。</p>
+<hr>
+<h2>目录</h2>
+<p><pre><code>trit-agent/
+  src/
+    agent.rs         主循环、状态编排
+    fsm.rs           三值状态机
+    gather.rs        采集与挖矿
+    behaviors.rs     行为组合
+    perceive/        协议解析 + 日志尾随
+    act/             Win32 注入 + dry 通道
+    daemon.rs        后台守护
+    squad.rs         共同意识
+    strategy.rs      战法
+    npc.rs           原版 Goal 的三值重写
+    trit.rs          三进制工具
+    text.rs          CJK 宽度感知
+  docs/
+    BOUNDARIES.md    能力边界
+    CONTROLS.md      操控方式注册表
+  tests/pipeline.rs
+
+trit-mc/
+  datapacks/         squad + trit_bridge
+  archive/origins/   起源包 + 汉化
+  scripts/           打包/装包/自检/诊断
+</code></pre></p>
+<hr>
+<h2>相关</h2>
+<ul>
+<li><a href="Design-Boundaries.html">能力边界</a> —— 诚实的边界</li>
+<li><a href="Sensor-Protocol.html">传感器协议</a> —— 协议契约与守门测试</li>
+<li><a href="Architecture.html">架构</a> —— 模块地图</li>
+</ul>
+<div class="pager"><a href="Troubleshooting.html">← 没效果怎么查</a><a class="next" href="Design-Boundaries.html">能力边界 →</a></div>
+<div class="meta">
+  <span class="badge">trit-agent 维基</span>
+  <span class="badge">bfxh/agent-wiki</span>
+  <span class="badge">Rust · Minecraft · 零依赖</span>
+</div>
+</main>
+</div>
+</body>
+</html>

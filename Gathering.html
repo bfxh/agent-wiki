@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>采集 · trit-agent 维基</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<a href="Home.html" class="">🏠 首页</a>
+<a href="Getting-Started.html" class="">🚀 上手</a>
+<a href="Hotkeys.html" class="">⌨️ 热键</a>
+<h2>上手</h2><div>
+<a href="Configuration.html" class="">⚙️ 配置</a>
+<a href="Background-Daemon.html" class="">🔧 后台守护进程</a>
+<a href="Tri-Value-FSM.html" class="">🎲 三值状态机</a>
+<a href="Perception.html" class="">👁️ 感知</a>
+</div>
+<h2>原理</h2><div>
+<a href="Gathering.html" class="on">🪓 采集</a>
+<a href="Architecture.html" class="">🏗️ 架构</a>
+<a href="Data-Packs.html" class="">📦 数据包</a>
+<a href="Sensor-Protocol.html" class="">🔌 传感器协议</a>
+</div>
+<h2>Minecraft 侧</h2><div>
+<a href="Crash-Troubleshooting.html" class="">💥 崩溃排查</a>
+<a href="Troubleshooting.html" class="">🔍 没效果怎么查</a>
+<a href="Building.html" class="">🔨 构建与测试</a>
+<a href="Design-Boundaries.html" class="">⚖️ 能力边界</a>
+</div>
+<h2>开发</h2><div>
+<a href="Control-Channels.html" class="">🎛️ 操控方式</a>
+</div>
+</nav>
+<main>
+<h1>采集</h1><p class="subtitle">真正难的是「什么时候不该砍」</p>
+<p>一个只会砍树的 bot 在生存里是<strong>负资产</strong>——它会在你被三只僵尸追着跑的时候<br>突然转身去砍旁边那棵树，然后你死了它还站着。</p>
+<p>所以这一层的主体不是「怎么砍」，而是<strong>门控</strong>。</p>
+<hr>
+<h2>门控：三值化</h2>
+<p>判据全部三值化：</p>
+<ul>
+<li><code>Neg</code> —— 明确不许</li>
+<li><code>Zero</code> —— 不确定（也不许，但不算「危险」）</li>
+<li><code>Pos</code> —— 才动手</li>
+</ul>
+<p>合成规则是「<strong>任一 <code>Neg</code> 压过全部，任一 <code>Zero</code> 降级为不确定</strong>」。</p>
+<hr>
+<h2>砍树（<code>gather_target = wood</code>）</h2>
+<table>
+<thead><tr><th>判据</th><th>不许砍</th><th>不确定 → 也不砍</th><th>默认值</th></tr></thead>
+<tbody><tr><td>威胁</td><td>有敌人</td><td>威胁状态未知（刚死过 / 数据过期）</td><td>—</td></tr><tr><td>血量</td><td>&lt; 65%</td><td>65%~80% 临界带</td><td><code>gather_min_hp</code></td></tr><tr><td>饱食度</td><td>≤ 7</td><td>读不到</td><td><code>gather_min_food</code></td></tr><tr><td>爆炸源</td><td>苦力怕 ≤10 格</td><td>—</td><td>—</td></tr><tr><td>敌距兜底</td><td>≤ 16 格</td><td>威胁判据可能滞后，距离是独立通道</td><td>—</td></tr><tr><td>昼夜</td><td>夜里</td><td>不知道时间（按夜里处理）</td><td><code>gather_night</code></td></tr><tr><td>有没有树</td><td>视野内没有 / 超过 20 格</td><td>—</td><td><code>gather_max_walk</code></td></tr><tr><td>配额</td><td>这一趟砍够了</td><td>—</td><td><code>gather_quota</code></td></tr><tr><td>卡死</td><td>单棵树砍 25 秒还没断</td><td>—</td><td><code>gather_max_chop_ms</code></td></tr></tbody>
+</table>
+<hr>
+<h2>挖矿多出来的三条</h2>
+<p>砍树站着不动就行，挖矿是<strong>在改变自己脚下的地形</strong>。<br>多出来的三条判据，每一条背后都是一次具体的死法：</p>
+<table>
+<thead><tr><th>判据</th><th>为什么</th><th>后果</th></tr></thead>
+<tbody><tr><td>脚下要有支撑（<code>no_floor</code>）</td><td>挖矿时会不自觉往前挪，前方是刚挖开的坑</td><td>掉进自己挖的坑，坑底可能是岩浆</td></tr><tr><td>目标不能是岩浆（<code>lava</code>）</td><td>矿石 tag 和危险 tag 是两套判据，<code>blk_front</code> 只报一个类别</td><td>必须先看危险，再看收益</td></tr><tr><td>前方被墙挡就换目标（<code>blocked</code>）</td><td>地上能绕，矿道里绕不了</td><td>对着墙走十秒和「卡死」是同一个观感</td></tr></tbody>
+</table>
+<hr>
+<h2>一格土坎 vs 两格墙</h2>
+<p>还有一个只能靠硬件区分的东西。</p>
+<p>在「1 格处有固体」这个判断里，一格高的土坎和两格高的墙<strong>一模一样</strong>，<br>但前者该跳、后者该绕。</p>
+<p>所以快通道多一条：</p>
+<p><pre><code class="language-mcfunction">execute at @s rotated ~0 0 positioned ^ ^ ^1 \
+  if block ~ ~ ~ #trit_bridge:solid unless block ~ ~1 ~ #trit_bridge:solid \
+  run scoreboard players set stp trit_bridge 1
+</code></pre></p>
+<p>少了这一条，AI 会把每一个土坎都当死路——表现是「<strong>明明能走的地方它站住不动</strong>」，<br>而且只在有地形起伏的地方发作。</p>
+<hr>
+<h2>三条让它「看起来像人」的机制</h2>
+<h3>1. 非对称的进入/退出</h3>
+<p>退出是当拍的（慢一点就来不及），<br>进入要<strong>连续</strong> 2.5 秒明确安全——中间闪一下不确定就重头计时。</p>
+<p>这个「攒窗口」是防抽搐的第一道锁。</p>
+<h3>2. 被打断要吃惩罚冷却</h3>
+<p>威胁退出后锁 8 秒不许开工。</p>
+<p>没有这一条，怪物稍微走远一点它就回去砍、砍两下怪又回来——<strong>原地抽搐</strong>。<br>真人不会这么干，真人会「这地方不安全了，先走」。</p>
+<h3>3. 干活时插播扫视</h3>
+<p>每 1.6 秒停手 350ms，左右转头。</p>
+<hr>
+<h2>挖矿多出来的三条机制</h2>
+<p>挖矿除了门控，还有三条特有的：</p>
+<table>
+<thead><tr><th>机制</th><th>说明</th></tr></thead>
+<tbody><tr><td>只挖<strong>露头</strong>的矿</td><td>射线打到方块才挖，不追地下的</td></tr><tr><td>换目标要<strong>冷却</strong></td><td>挖不到就换一个，别在一个点上耗 25 秒</td></tr><tr><td>挖矿时<strong>不乱走</strong></td><td>挖矿要站在原地，所以脚下支撑是硬判据</td></tr></tbody>
+</table>
+<hr>
+<h2>视线闭环</h2>
+<p>挖矿要瞄准矿脉，瞄准要转视角，转视角要等感知回来——这是个环。</p>
+<p>处理办法（<code>behaviors.rs</code>）：</p>
+<ol>
+<li>转向目标方位</li>
+<li><strong>停手等感知</strong>（等多久是量出来的，见 <a href="Perception.html">感知</a>）</li>
+<li>看准星对着什么</li>
+<li>是矿石 → 挥击；不是 → 继续转</li>
+</ol>
+<p>慢通道下压 30° 视线要 2~3 次、约 3.6 秒；<br>快通道下只要 2 次、约 0.7 秒。<strong>这就是快通道的实际价值。</strong></p>
+<hr>
+<h2>配一条命令试</h2>
+<p><pre><code class="language-bash"># 模拟一整趟采集（不真的动）
+cargo run --release -- sim --gather
+
+# 模拟挖矿
+cargo run --release -- sim --mine
+</code></pre></p>
+<p><strong>第一次实机建议</strong>：<code>gather_quota = 1</code>、<code>gather_target = wood</code>。<br>先砍树再试挖矿——挖矿的判据多，出问题的面也大。</p>
+<hr>
+<h2>相关</h2>
+<ul>
+<li><a href="Perception.html">感知</a> —— 视线闭环怎么等</li>
+<li><a href="Configuration.html">配置</a> —— 每个门控参数</li>
+<li><a href="Design-Boundaries.html">能力边界</a> —— 这一层做不到什么</li>
+</ul>
+<div class="pager"><a href="Perception.html">← 感知</a><a class="next" href="Architecture.html">架构 →</a></div>
+<div class="meta">
+  <span class="badge">trit-agent 维基</span>
+  <span class="badge">bfxh/agent-wiki</span>
+  <span class="badge">Rust · Minecraft · 零依赖</span>
+</div>
+</main>
+</div>
+</body>
+</html>

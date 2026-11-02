@@ -1,0 +1,66 @@
+{
+  "Home": {
+    "title": "首页",
+    "icon": "🏠"
+  },
+  "Getting-Started": {
+    "title": "上手",
+    "icon": "🚀"
+  },
+  "Hotkeys": {
+    "title": "热键",
+    "icon": "⌨️"
+  },
+  "Configuration": {
+    "title": "配置",
+    "icon": "⚙️"
+  },
+  "Background-Daemon": {
+    "title": "后台守护进程",
+    "icon": "🔧"
+  },
+  "Tri-Value-FSM": {
+    "title": "三值状态机",
+    "icon": "🎲"
+  },
+  "Perception": {
+    "title": "感知",
+    "icon": "👁️"
+  },
+  "Gathering": {
+    "title": "采集",
+    "icon": "🪓"
+  },
+  "Architecture": {
+    "title": "架构",
+    "icon": "🏗️"
+  },
+  "Data-Packs": {
+    "title": "数据包",
+    "icon": "📦"
+  },
+  "Sensor-Protocol": {
+    "title": "传感器协议",
+    "icon": "🔌"
+  },
+  "Crash-Troubleshooting": {
+    "title": "崩溃排查",
+    "icon": "💥"
+  },
+  "Troubleshooting": {
+    "title": "没效果怎么查",
+    "icon": "🔍"
+  },
+  "Building": {
+    "title": "构建与测试",
+    "icon": "🔨"
+  },
+  "Design-Boundaries": {
+    "title": "能力边界",
+    "icon": "⚖️"
+  },
+  "Control-Channels": {
+    "title": "操控方式",
+    "icon": "🎛️"
+  }
+}

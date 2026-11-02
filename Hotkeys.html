@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>热键 · trit-agent 维基</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<a href="Home.html" class="">🏠 首页</a>
+<a href="Getting-Started.html" class="">🚀 上手</a>
+<a href="Hotkeys.html" class="on">⌨️ 热键</a>
+<h2>上手</h2><div>
+<a href="Configuration.html" class="">⚙️ 配置</a>
+<a href="Background-Daemon.html" class="">🔧 后台守护进程</a>
+<a href="Tri-Value-FSM.html" class="">🎲 三值状态机</a>
+<a href="Perception.html" class="">👁️ 感知</a>
+</div>
+<h2>原理</h2><div>
+<a href="Gathering.html" class="">🪓 采集</a>
+<a href="Architecture.html" class="">🏗️ 架构</a>
+<a href="Data-Packs.html" class="">📦 数据包</a>
+<a href="Sensor-Protocol.html" class="">🔌 传感器协议</a>
+</div>
+<h2>Minecraft 侧</h2><div>
+<a href="Crash-Troubleshooting.html" class="">💥 崩溃排查</a>
+<a href="Troubleshooting.html" class="">🔍 没效果怎么查</a>
+<a href="Building.html" class="">🔨 构建与测试</a>
+<a href="Design-Boundaries.html" class="">⚖️ 能力边界</a>
+</div>
+<h2>开发</h2><div>
+<a href="Control-Channels.html" class="">🎛️ 操控方式</a>
+</div>
+</nav>
+<main>
+<h1>热键</h1><p class="subtitle">F8 交还 · F9 急停 · F10 切视角</p>
+<table>
+<thead><tr><th>键</th><th>作用</th></tr></thead>
+<tbody><tr><td><strong><code>F8</code></strong></td><td><strong>一键交还控制权</strong>。按一下关：立刻松开所有键 → 切回第一视角 → 标题变 <code>[AI 待机]</code>。再按一下重新接管</td></tr><tr><td><code>F9</code></td><td>急停。关掉 AI 但<strong>不切视角</strong>（想保持第三视角看场面时用）</td></tr><tr><td><code>F10</code></td><td>切视角：第一 → 第三背视 → 第三前视 → 循环</td></tr><tr><td><code>F6</code></td><td>单独开关「攻击」这一项次操作</td></tr><tr><td><code>F7</code></td><td>单独开关「移动」这一项次操作</td></tr></tbody>
+</table>
+<hr>
+<h2>为什么是 F8</h2>
+<p>原版 1.18 的默认绑定里 <code>F5</code> 是视角、<code>F3</code> 是调试、<code>F1</code> 隐藏 HUD、<br><code>F2</code> 截图、<code>F11</code> 全屏，<code>F6</code>/<code>F7</code> 常被 mod 占；<br>只有 <code>F8</code> 是空的，而且和 <code>F5</code> 相邻，左手一伸就能按到。</p>
+<p>不想用 <code>F8</code> 就改 <code>kill_switch_vk</code>（虚拟键码）。</p>
+<p><strong>热键是全局的</strong> —— 即使焦点在浏览器上也能按 <code>F8</code> 把 AI 停掉。</p>
+<hr>
+<h2>「按 F8 没反应」九成是进程没在跑</h2>
+<p>热键是进程里注册的全局钩子，<strong>窗口一关就没了</strong>。</p>
+<p>所以现在「启动 AI」双击一次就够了，<strong>先开它、后开游戏也行</strong>：<br>找不到游戏窗口时它会原地等（每 30 秒打印一次在等什么），<br>不会像以前那样打印一行就 <code>exit(2)</code> 让黑窗口一闪而过——<br>那正是「我按了 F8 什么都没发生」的来源。</p>
+<p>查进程状态：</p>
+<p><pre><code class="language-bash">target/release/trit-agent.exe status
+</code></pre></p>
+<p>显示「未运行」→ 双击 <code>安装后台.bat</code>（见 <a href="Background-Daemon.html">后台守护进程</a>）。</p>
+<p>&gt; <strong>另一个进程在抢同一个互斥量也会导致按 F8 没反应。</strong><br>&gt; 前台 <code>run</code> 和后台 <code>daemon</code> 共用命名互斥量 <code>Global\trit-agent-mutex</code>，<br>&gt; 全局只允许一个进程轮询 F8。两个进程同时监听 = 按一次被切两次 = 看起来毫无反应。<br>&gt; <code>status</code> 会告诉你有没有别的实例在跑。</p>
+<hr>
+<h2>关掉它的时候到底发生了什么</h2>
+<p>按 <code>F8</code> 是一串动作，<strong>不是一个布尔值</strong>：</p>
+<ol>
+<li><code>release_all()</code> —— 立刻发 KEYUP，不等下一拍。</li>
+</ol>
+<p>   否则当前这一帧你还按着 <code>W</code>，下一帧就是人和 AI 抢键盘。</p>
+<ol>
+<li>状态机进 <code>Off</code>，所有通道弃权（<code>Zero</code>）。</li>
+<li>若 <code>restore_first_person = true</code>（默认）：注入 F5 切回第一视角。</li>
+<li>窗口标题变 <code>[AI 待机]</code>。</li>
+</ol>
+<p>第 3 步和第 4 步是给「人」的信号。没有它们，<br>你按了 <code>F8</code> 之后只能靠「角色是不是还在动」来猜 AI 死没死。</p>
+<hr>
+<h2>第三视角的绕法</h2>
+<p>接管时会自动切到第三视角（默认背视）。</p>
+<p>原版 F5 是个<strong>三态环</strong>：第一 → 第三背视 → 第三前视 → 第一。<br>问题是我们读不到当前在哪一档，所以第一次切换<strong>不猜</strong>：<br><strong>按满一圈</strong>（3 次必回第一视角）再走到目标。</p>
+<p>这听起来蠢但是对的——猜错方向会导致「以为切到背视了，实际切到前视」，<br>而 AI 的移动方向是按背视算的，结果就是一路往反方向走。</p>
+<hr>
+<h2>窗口失焦时自动停手</h2>
+<p>游戏窗口不在前台时，AI 会<strong>松开所有键并停手</strong>（<code>bg_pauses</code> 计数会涨）。</p>
+<p>理由：你切出去写代码，角色不该继续在世界里乱跑、顺便把末影 Pearl 打了。<br><code>focus_pause = false</code> 可以关掉这个行为。</p>
+<hr>
+<h2>怎么认出「那是游戏窗口」</h2>
+<p>标题匹配是<strong>次要</strong>判据，主要靠<strong>窗口类名</strong>：</p>
+<table>
+<thead><tr><th>判据</th><th>权重</th></tr></thead>
+<tbody><tr><td>类名以 <code>GLFW</code> 开头（LWJGL3）</td><td>+100</td></tr><tr><td>标题含配置里的关键字</td><td>+10</td></tr><tr><td>标题前缀匹配</td><td>+2</td></tr></tbody>
+</table>
+<p>&gt; 整合包「烦人的村民」的窗口标题是 <code>Annoying Villagers - Annoying Villagers</code>，<br>&gt; <strong>整串没有 "Minecraft"</strong>。真正决定匹配的是类名 <code>GLFW30</code>。</p>
+<p><code>trit-agent probe</code> 会把候选窗口列出来（标题 + 类名），光看标题根本分不清<br>启动器和游戏。</p>
+<hr>
+<h2>相关</h2>
+<ul>
+<li><a href="Configuration.html">配置</a> —— 改键位、关掉某些行为</li>
+<li><a href="Background-Daemon.html">后台守护进程</a> —— 让进程一直在，F8 才一直有效</li>
+</ul>
+<div class="pager"><a href="Getting-Started.html">← 上手</a><a class="next" href="Configuration.html">配置 →</a></div>
+<div class="meta">
+  <span class="badge">trit-agent 维基</span>
+  <span class="badge">bfxh/agent-wiki</span>
+  <span class="badge">Rust · Minecraft · 零依赖</span>
+</div>
+</main>
+</div>
+</body>
+</html>
