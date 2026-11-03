@@ -140,8 +140,7 @@ dependency_gate(required, evidence):
 注意：`evidence::Receipt` 是**执行回执**（exit/断言数），
 `receipt::DeliveryReceipt` 是**通讯回执**（Sent→Acted）。两者不要混。
 
-> 干净分支 `feat/trit-orch-coordination`（PR #241）已全绿，基于最新 `main`；
-> 旧 `feat/orchestration-core` 保留（含 GPU/texture 等改动）。
+> 已合并到 `main`（PR #241，main=`58d5589`）；旧 `feat/orchestration-core` 保留（含 GPU/texture 等改动）。
 > CLI 适配还没接。
 
 ---
