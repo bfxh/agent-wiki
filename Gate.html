@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>门禁 · trit-agent 维基</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<div class="nav-tools">
+<input id="wiki-search" class="search-box" type="search" placeholder="搜索页面…" autocomplete="off" aria-label="搜索页面">
+<div id="search-results" class="search-results" hidden></div>
+<button id="tx-badge" class="tx-badge" type="button" aria-expanded="false" aria-controls="tx-drawer">传输 <span id="tx-count">0</span></button>
+</div>
+<a href="Home.html" class="">🏠 首页</a>
+<h2>上手</h2><div>
+<a href="Getting-Started.html" class="">🚀 上手</a>
+<a href="Hotkeys.html" class="">⌨️ 热键</a>
+<a href="Configuration.html" class="">⚙️ 配置</a>
+<a href="Background-Daemon.html" class="">🔧 后台守护进程</a>
+</div>
+<h2>原理</h2><div>
+<a href="Tri-Value-FSM.html" class="">🎲 三值状态机</a>
+<a href="Perception.html" class="">👁️ 感知</a>
+<a href="Gathering.html" class="">🪓 采集</a>
+<a href="Architecture.html" class="">🏗️ 架构</a>
+<a href="Coordination.html" class="">🔀 协调与传输</a>
+<a href="Concept-Map.html" class="">🗺️ 三进制概念地图</a>
+</div>
+<h2>Minecraft 侧</h2><div>
+<a href="Data-Packs.html" class="">📦 数据包</a>
+<a href="Sensor-Protocol.html" class="">🔌 传感器协议</a>
+<a href="Crash-Troubleshooting.html" class="">💥 崩溃排查</a>
+<a href="Troubleshooting.html" class="">🔍 没效果怎么查</a>
+</div>
+<h2>开发</h2><div>
+<a href="Building.html" class="">🔨 构建与测试</a>
+<a href="Design-Boundaries.html" class="">⚖️ 能力边界</a>
+<a href="Control-Channels.html" class="">🎛️ 操控方式</a>
+<a href="Agent-Interop.html" class="">🤝 跨智能体通讯</a>
+<a href="Transport-UI.html" class="">📡 传输层 UI</a>
+<a href="Docs-As-Artifacts.html" class="">📚 文档即工件</a>
+<a href="Gate.html" class="on">✅ 门禁</a>
+</div>
+</nav>
+<main>
+<h1>门禁</h1><p class="subtitle">文档门禁 W1-W12：清单/断链/传输/构建/UI</p>
+<p>&gt; 这一页回答：文档站怎么保证“不是假绿”。<br>&gt; 结论：<strong>清单 + 断链 + 传输事件 + 构建 + UI 钩子，全部 fail-closed；并且用负例自测证明每一类错误都能判红。</strong></p>
+<hr>
+<h2>0. 为什么文档也要门禁</h2>
+<ul>
+<li>页面漏登记：导航没有、搜索没有、别人找不到。</li>
+<li>链接写错：<code>[[Coordination]]</code> 变成死链，构建照样“成功”。</li>
+<li>传输事件字段缺失：UI 徽标显示 9 条，实际只有 7 条能渲染。</li>
+<li>构建脚本自己坏了：生成 21 页但缺 <code>site.js</code>，打开就是白屏。</li>
+<li>密钥/令牌混进示例：提交到公开仓。</li>
+</ul>
+<p>这些都不是“内容问题”，是<strong>判定链问题</strong>。所以门禁先判结构，再判内容。</p>
+<hr>
+<h2>1. W1-W12</h2>
+<table>
+<thead><tr><th>门</th><th>判据</th><th>典型反例</th></tr></thead>
+<tbody><tr><td>W1</td><td><code>wiki.json</code> 可解析、<code>pages</code> 非空</td><td>JSON 语法错、空清单</td></tr><tr><td>W2</td><td><code>slug</code> 唯一、<code>file</code> 是 <code>.md</code></td><td>两个页面同 slug</td></tr><tr><td>W3</td><td>每个 <code>file</code> 存在</td><td>清单有、文件没了</td></tr><tr><td>W4</td><td>每个 <code>*.md</code>（除 <code>README.md</code>）都登记</td><td>新页面忘了加清单</td></tr><tr><td>W5</td><td><code>title/group/summary/tags</code> 完整</td><td>缺摘要、tags 不是数组</td></tr><tr><td>W6</td><td><code>[[内部链接]]</code> 目标存在（代码块/行内代码不算）</td><td><code>[[Nope]]</code></td></tr><tr><td>W7</td><td>传输事件字段完整、id 唯一、status 非空</td><td>缺 <code>status</code>、bytes 不是整数</td></tr><tr><td>W8</td><td>无明显密钥（GitHub token / API key / 私钥 / AWS key）</td><td>示例里放了真 token</td></tr><tr><td>W9</td><td><code>build_site.py</code> 构建成功</td><td>缺 <code>scripts/site.js</code></td></tr><tr><td>W10</td><td>每页都有 <code>tx-badge</code>/<code>tx-drawer</code>/<code>search-data.js</code>/<code>transport-data.js</code>/<code>site.js</code></td><td>模板漏了抽屉</td></tr><tr><td>W11</td><td>分组连续（同一组不重复出现）</td><td>导航分组来回跳</td></tr><tr><td>W12</td><td>生成的 <code>search-data.js</code>/<code>transport-data.js</code> 与源一致</td><td>源 9 条、生成 7 条</td></tr></tbody>
+</table>
+<p>&gt; 全绿只说明“结构/构建/UI 钩子”没问题；内容是否正确仍要人看。</p>
+<hr>
+<h2>2. 怎么跑</h2>
+<p><pre><code class="language-bash"># 1) 负例自测：必须证明每类错误都能判红
+python scripts/check_wiki.py --self-test
+
+# 2) 实际检查：清单/断链/传输/构建/UI
+python scripts/check_wiki.py --src .
+
+# 3) JSON 输出（给 CI/其他工具）
+python scripts/check_wiki.py --src . --json
+</code></pre></p>
+<p>退出码：</p>
+<ul>
+<li><code>0</code>：全绿；</li>
+<li><code>1</code>：有 FAIL；</li>
+<li><code>2</code>：用法错误（<code>--src</code> 不是目录）。</li>
+</ul>
+<p>输出是逐项 <code>PASS/FAIL</code>，最后一行是总结果；任何 FAIL 都打印具体文件/字段，不写“检查失败”四个字了事。</p>
+<hr>
+<h2>3. 负例自测</h2>
+<p><code>--self-test</code> 会临时造一个最小站点，然后逐个注入错误：</p>
+<table>
+<thead><tr><th>负例</th><th>期望</th></tr></thead>
+<tbody><tr><td>重复 slug</td><td>W2 红</td></tr><tr><td>删掉页面文件</td><td>W3 红</td></tr><tr><td>加一个未登记 md</td><td>W4 红</td></tr><tr><td>删掉 <code>summary</code></td><td>W5 红</td></tr><tr><td>写 <code>[[Nope]]</code></td><td>W6 红</td></tr><tr><td>删掉事件 <code>status</code></td><td>W7 红</td></tr><tr><td>放一个假 <code>ghp_...</code></td><td>W8 红</td></tr><tr><td>删掉 <code>scripts/site.js</code></td><td>W9 红</td></tr><tr><td>分组来回跳</td><td>W11 红</td></tr><tr><td>生成物缺 UI 钩子</td><td>W10 红</td></tr><tr><td>生成物条数不一致</td><td>W12 红</td></tr></tbody>
+</table>
+<p><strong>如果某个负例没红，<code>--self-test</code> 自己判红。</strong> 这样门禁本身也被测，不是“只测别人”。</p>
+<hr>
+<h2>4. CI</h2>
+<p><code>.github/workflows/wiki-gate.yml</code>：</p>
+<ul>
+<li><code>push</code> 到 <code>master</code> / <code>pull_request</code> / 手动触发；</li>
+<li>只读权限（<code>contents: read</code>）；</li>
+<li>先跑 <code>--self-test</code>，再跑 <code>--src .</code>，最后构建；</li>
+<li>任何一步非 0，PR 红。</li>
+</ul>
+<p>&gt; CI 不负责发布；发布仍然走 <code>gh-pages</code>（Pages 源已设为 <code>gh-pages</code> 根路径）。<br>&gt; 门禁只保证“源是自洽的、能构建的、UI 钩子在的”。</p>
+<hr>
+<h2>5. 和另外两类门的关系</h2>
+<table>
+<thead><tr><th>门类</th><th>例子</th><th>管什么</th></tr></thead>
+<tbody><tr><td>文档门（本页）</td><td>W1-W12</td><td>清单/链接/传输/构建/UI</td></tr><tr><td>运行时门</td><td><code>trit-orch::admit</code>、<code>compaction_gate</code>、<code>effects::Ledger</code></td><td>这一轮能不能传、上下文能不能压、副作用是否确定</td></tr><tr><td>仓库门</td><td>变异门、module budget、secret scan、必需检查</td><td>代码/提交/CI 是否可信</td></tr></tbody>
+</table>
+<p>三层不要混：文档门绿，不代表代码门绿；代码门绿，也不代表文档没断链。</p>
+<hr>
+<h2>6. 加新页清单</h2>
+<ol>
+<li>写 <code>NewPage.md</code>。</li>
+<li>在 <code>wiki.json</code> 加一条：<code>slug/file/title/group/summary/tags</code>。</li>
+<li>在 <code>Home.md</code> 或相关页加 <code>[[NewPage]]</code>。</li>
+<li>跑 <code>python scripts/check_wiki.py --src .</code>。</li>
+<li>跑构建，本地打开 <code>site/index.html</code>。</li>
+<li>提交；CI 会再跑一遍。</li>
+</ol>
+<p>&gt; 顺序不能反：<strong>先登记，再写页</strong>；否则 W4 会判红，提醒你“有页面没进清单”。</p>
+<div class="pager"><a href="Docs-As-Artifacts.html">← 文档即工件</a></div>
+<div class="meta">
+  <span class="badge">trit-agent 维基</span>
+  <span class="badge">bfxh/agent-wiki</span>
+  <span class="badge">Rust · Minecraft · 零依赖</span>
+</div>
+</main>
+</div>
+
+<div id="tx-overlay" class="tx-overlay" hidden></div>
+<aside id="tx-drawer" class="tx-drawer" role="dialog" aria-modal="true" aria-labelledby="tx-title" hidden>
+  <div class="tx-head">
+    <strong id="tx-title">传输记录</strong>
+    <span class="tx-note">示例数据</span>
+    <button id="tx-close" class="tx-close" type="button" aria-label="关闭">×</button>
+  </div>
+  <div class="tx-filters">
+    <label>状态 <select id="tx-filter"><option value="">全部</option></select></label>
+    <span class="tx-hint">点一条展开 payload</span>
+  </div>
+  <div id="tx-list" class="tx-list"></div>
+</aside>
+
+<script src="search-data.js"></script>
+<script src="transport-data.js"></script>
+<script src="site.js"></script>
+</body>
+</html>
