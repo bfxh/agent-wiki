@@ -25,7 +25,7 @@ bfxh/trit-immune（独立仓 + 单体仓内 crates/trit-immune）
 bfxh/trit-agent（Rust）  ←→  bfxh/trit-mc（Minecraft 数据包）
   └─ 三值决策状态机 + 输入注入 + 感知解析
 
-bfxh/repo-tools（Python）      仓库运维：快照/回滚/发布/依赖脱离
+bfxh/repo-tools（Python）      仓库运维：快照/回滚/发布/依赖脱离 + 项目默认值 profiles + openai/math 参考索引
 bfxh/agent-wiki（本仓）        文档 + 静态站 + 传输层 UI
 bfxh/arch-optimize             架构扫描/回归守卫
 ```
@@ -42,6 +42,7 @@ bfxh/arch-optimize             架构扫描/回归守卫
 | 决定“这一轮能不能传” | `trit-orch` | `admit`、`admit_with_claim`、`dependency_gate`、`Plan::select`、`compaction_gate`、`Ledger`、`ClaimStore`、`DeliveryReceipt` | 不要用它执行外部调用 |
 | 做安全裁决/仓库治理 | `trit-immune` | `Trit`、`ImmuneDag`、`Journal`、`Fleet`、`policy::decide` | 不要把它当通用调度器 |
 | 做 Minecraft 角色托管 | `trit-agent` + `trit-mc` | `fsm.rs`、`Sensor`、`CommandSink` | 不要把它当通用 agent 框架 |
+| 找数学参考/形式化 | `repo-tools/mathref.py` | `openai/math` 的 families / Lean / 论文 | 不要当已验证结论或构建依赖 |
 | 仓库自动化（快照/发布） | `repo-tools` | `snapshot.py`、`publish`、`detach` | 不要把它当协议核心 |
 | 写文档/看文档 | `agent-wiki` | `*.md`、`wiki.json`、`scripts/build_site.py` | 不要把 HTML 当真相 |
 
