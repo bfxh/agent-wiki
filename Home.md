@@ -30,6 +30,16 @@ F8 一键交还控制权。感知延迟在动手期间压到 100ms 量级。
 
 ---
 
+## 先读（如果觉得概念乱）
+
+- 不知道 `trit` / `trit-core` / `trit-schedule` / `trit-orch` / `trit-immune` 谁是谁：[[Concept-Map]]
+- 想搞清“为什么有的东西一轮能传、有的不能”：[[Coordination]]
+- 想看“到底传了什么”：[[Transport-UI]]
+- 文档太多、不知道怎么管：[[Docs-As-Artifacts]]
+- 要接别的智能体：[[Agent-Interop]]
+
+---
+
 ## 目录
 
 ### 上手
@@ -43,6 +53,8 @@ F8 一键交还控制权。感知延迟在动手期间压到 100ms 量级。
 - [[Perception]] —— 两条通道，两个频率
 - [[Gathering]] —— 采集：什么时候不该砍
 - [[Architecture]] —— 模块地图与数据流
+- [[Coordination]] —— 一轮能传什么，什么时候必须多轮
+- [[Concept-Map]] —— trit / trit-schedule / trit-orch / trit-immune / trit-agent 到底谁是谁
 
 ### Minecraft 侧
 - [[Data-Packs]] —— 数据包、起源包、装包的那些坑
@@ -54,6 +66,9 @@ F8 一键交还控制权。感知延迟在动手期间压到 100ms 量级。
 - [[Building]] —— 编译、测试、自检
 - [[Design-Boundaries]] —— 能力边界（诚实的部分）
 - [[Control-Channels]] —— 操控方式注册表 / 想接对讲机看这里
+- [[Agent-Interop]] —— 跨智能体通讯：信封、能力、四态回执
+- [[Transport-UI]] —— 传输层 UI：数字徽标 + 点开看传输了什么
+- [[Docs-As-Artifacts]] —— 文档即工件：谁管理、谁渲染、谁发布
 
 ---
 

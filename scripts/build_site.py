@@ -79,6 +79,29 @@ PAGE_TITLES = {
     "Home": "trit-agent 维基",
 }
 
+# ---------------------------------------------------------------- 清单（wiki.json）
+# 清单是页面的唯一注册表：导航顺序、分组、标题、摘要、标签、文件名都从它来。
+# 没有 wiki.json 时退回旧的 PAGES/GROUP_END 行为（兼容）。
+MANIFEST_NAME = "wiki.json"
+GROUP_OF: dict[str, str] = {}
+PAGE_SUMMARIES: dict[str, str] = {}
+PAGE_TAGS: dict[str, list[str]] = {}
+PAGE_FILES: dict[str, str] = {}
+
+
+def load_manifest(src: pathlib.Path):
+    path = src / MANIFEST_NAME
+    if not path.is_file():
+        return None, []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"wiki.json 解析失败：{exc}") from exc
+    pages = data.get("pages") or []
+    if not pages:
+        raise SystemExit("wiki.json 没有 pages")
+    return data, pages
+
 # ---------------------------------------------------------------- 样式
 CSS = """
 :root {
@@ -172,6 +195,60 @@ img { max-width: 100%; }
 .badge { display:inline-block; padding:1px 8px; border-radius:20px;
          background: var(--bg-soft); border:1px solid var(--border);
          font-size:12px; color: var(--text-dim); }
+
+/* 搜索与传输层 UI */
+.nav-tools { position: sticky; top: 0; z-index: 3; background: var(--bg);
+             padding: 0 0 10px; margin-bottom: 6px; }
+.search-box { width: 100%; padding: 7px 10px; border: 1px solid var(--border);
+              border-radius: 6px; background: var(--bg); color: var(--text);
+              font-size: 14px; }
+.search-results { margin-top: 6px; border: 1px solid var(--border); border-radius: 6px;
+                  background: var(--bg); max-height: 46vh; overflow-y: auto; }
+.search-results a { display: block; padding: 6px 10px; font-size: 13px; }
+.search-results a:hover { background: var(--bg-soft); }
+.search-results .snippet { display: block; color: var(--text-dim); font-size: 12px; }
+.search-empty { padding: 10px; color: var(--text-dim); font-size: 13px; }
+.tx-badge { margin-top: 8px; width: 100%; padding: 7px 10px; border: 1px solid var(--border);
+            border-radius: 6px; background: var(--bg-soft); color: var(--text);
+            cursor: pointer; font-size: 13px; text-align: left; }
+.tx-badge:hover { border-color: var(--accent); }
+.tx-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 50; }
+.tx-drawer { position: fixed; top: 0; right: 0; width: min(540px, 94vw); height: 100vh;
+             background: var(--bg); border-left: 1px solid var(--border); z-index: 60;
+             display: flex; flex-direction: column; transform: translateX(100%);
+             transition: transform .18s ease; }
+.tx-drawer.open { transform: translateX(0); }
+.tx-drawer[hidden] { display: none; }
+.tx-head { display: flex; align-items: center; gap: 10px; padding: 16px 18px;
+           border-bottom: 1px solid var(--border); }
+.tx-note { color: var(--text-dim); font-size: 12px; }
+.tx-close { margin-left: auto; border: 1px solid var(--border); background: var(--bg-soft);
+            color: var(--text); border-radius: 6px; width: 32px; height: 32px;
+            font-size: 20px; line-height: 1; cursor: pointer; }
+.tx-filters { display: flex; align-items: center; gap: 12px; padding: 10px 18px;
+              border-bottom: 1px solid var(--border); font-size: 13px; }
+.tx-filters select { margin-left: 4px; padding: 3px 6px; border: 1px solid var(--border);
+                     border-radius: 5px; background: var(--bg); color: var(--text); }
+.tx-hint { color: var(--text-dim); font-size: 12px; margin-left: auto; }
+.tx-list { overflow-y: auto; padding: 10px 12px 40px; }
+.tx-item { display: block; width: 100%; text-align: left; border: 1px solid var(--border);
+           border-radius: 8px; background: var(--bg-soft); padding: 10px 12px; margin: 8px 0;
+           cursor: pointer; color: var(--text); font-size: 14px; }
+.tx-item:hover { border-color: var(--accent); }
+.tx-meta { color: var(--text-dim); font-size: 12px; margin-top: 5px; }
+.tx-payload { display: none; margin: 8px 0 0; padding: 9px 10px; white-space: pre-wrap;
+              word-break: break-word; background: var(--bg); border: 1px solid var(--border);
+              border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+              font-size: 12px; line-height: 1.55; }
+.tx-item.open .tx-payload { display: block; }
+.tx-empty { color: var(--text-dim); padding: 24px 12px; text-align: center; }
+@media (max-width: 760px) {
+  .wrap { display: block; }
+  nav { width: auto; flex: none; position: static; max-height: none; border-right: none;
+        border-bottom: 1px solid var(--border); }
+  main { padding: 26px 18px 80px; }
+  .search-box { font-size: 16px; }
+}
 """
 
 
@@ -366,21 +443,39 @@ def md_to_html(md: str) -> str:
 
 
 def nav_html(current: str) -> str:
-    """侧边栏导航。"""
-    parts = ['<nav>', f'<a href="Home.html" class="{"on" if current == "Home" else ""}">🏠 首页</a>']
-    seen: set[str] = set()
+    """侧边栏导航：搜索、传输徽标、分组页面。"""
+    parts = ['<nav>']
+    parts.append('<div class="nav-tools">')
+    parts.append(
+        '<input id="wiki-search" class="search-box" type="search" '
+        'placeholder="搜索页面…" autocomplete="off" aria-label="搜索页面">'
+    )
+    parts.append('<div id="search-results" class="search-results" hidden></div>')
+    parts.append(
+        '<button id="tx-badge" class="tx-badge" type="button" '
+        'aria-expanded="false" aria-controls="tx-drawer">'
+        '传输 <span id="tx-count">0</span></button>'
+    )
+    parts.append('</div>')
+    parts.append(f'<a href="Home.html" class="{"on" if current == "Home" else ""}">🏠 首页</a>')
+
+    current_group = None
+    open_group = False
     for name, label, icon in PAGES:
         if name == "Home":
             continue
-        group = GROUP_END.get(name)
-        if group and group not in seen:
-            if seen:
+        group = GROUP_OF.get(name, "")
+        if group != current_group:
+            if open_group:
                 parts.append("</div>")
-            parts.append(f"<h2>{group}</h2><div>")
-            seen.add(group)
+                open_group = False
+            if group:
+                parts.append(f"<h2>{html.escape(group)}</h2><div>")
+                open_group = True
+            current_group = group
         cls = "on" if current == name else ""
-        parts.append(f'<a href="{name}.html" class="{cls}">{icon} {label}</a>')
-    if seen:
+        parts.append(f'<a href="{name}.html" class="{cls}">{icon} {html.escape(label)}</a>')
+    if open_group:
         parts.append("</div>")
     parts.append("</nav>")
     return "\n".join(parts)
@@ -426,12 +521,32 @@ def page_html(name: str, title: str, body_md: str) -> str:
 </div>
 </main>
 </div>
+
+<div id="tx-overlay" class="tx-overlay" hidden></div>
+<aside id="tx-drawer" class="tx-drawer" role="dialog" aria-modal="true" aria-labelledby="tx-title" hidden>
+  <div class="tx-head">
+    <strong id="tx-title">传输记录</strong>
+    <span class="tx-note">示例数据</span>
+    <button id="tx-close" class="tx-close" type="button" aria-label="关闭">×</button>
+  </div>
+  <div class="tx-filters">
+    <label>状态 <select id="tx-filter"><option value="">全部</option></select></label>
+    <span class="tx-hint">点一条展开 payload</span>
+  </div>
+  <div id="tx-list" class="tx-list"></div>
+</aside>
+
+<script src="search-data.js"></script>
+<script src="transport-data.js"></script>
+<script src="site.js"></script>
 </body>
 </html>
 """
 
 
 def main() -> int:
+    global PAGES, SUBTITLES, GROUP_OF, PAGE_SUMMARIES, PAGE_TAGS, PAGE_FILES, PAGE_TITLES
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--src", default=".", help="markdown 所在目录")
     ap.add_argument("--out", default="site", help="输出目录")
@@ -441,29 +556,135 @@ def main() -> int:
     out = pathlib.Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
 
+    # 清单优先；没有 wiki.json 时退回旧的 PAGES 行为。
+    manifest, manifest_pages = load_manifest(src)
+    if manifest_pages:
+        PAGES = [(p["slug"], p.get("title", p["slug"]), p.get("icon", "")) for p in manifest_pages]
+        SUBTITLES = {p["slug"]: p.get("summary", "") for p in manifest_pages}
+        GROUP_OF = {p["slug"]: p.get("group", "") for p in manifest_pages}
+        PAGE_SUMMARIES = {p["slug"]: p.get("summary", "") for p in manifest_pages}
+        PAGE_TAGS = {p["slug"]: list(p.get("tags", [])) for p in manifest_pages}
+        PAGE_FILES = {p["slug"]: p.get("file", f"{p['slug']}.md") for p in manifest_pages}
+        PAGE_TITLES = {p["slug"]: p.get("title", p["slug"]) for p in manifest_pages}
+        PAGE_TITLES["Home"] = "trit-agent 维基"
+    else:
+        GROUP_OF = {
+            "Getting-Started": "上手", "Hotkeys": "上手", "Configuration": "上手",
+            "Background-Daemon": "上手",
+            "Tri-Value-FSM": "原理", "Perception": "原理", "Gathering": "原理",
+            "Architecture": "原理",
+            "Data-Packs": "Minecraft 侧", "Sensor-Protocol": "Minecraft 侧",
+            "Crash-Troubleshooting": "Minecraft 侧", "Troubleshooting": "Minecraft 侧",
+            "Building": "开发", "Design-Boundaries": "开发", "Control-Channels": "开发",
+        }
+        PAGE_SUMMARIES = dict(SUBTITLES)
+        PAGE_TAGS = {}
+        PAGE_FILES = {name: f"{name}.md" for name, _, _ in PAGES}
+
+    # ------------------------------------------------ 校验（fail closed）
+    errors: list[str] = []
+    slugs = [name for name, _, _ in PAGES]
+    if len(slugs) != len(set(slugs)):
+        errors.append("wiki.json: slug 重复")
+
+    registered = set(PAGE_FILES.values())
+    md_files = {p.name for p in src.glob("*.md")} - {"README.md"}
+    for orphan in sorted(md_files - registered):
+        errors.append(f"未登记页面（不在 wiki.json）：{orphan}")
+
+    for name, _, _ in PAGES:
+        file_name = PAGE_FILES.get(name, f"{name}.md")
+        path = src / file_name
+        if not path.is_file():
+            errors.append(f"缺文件：{file_name}（slug={name}）")
+            continue
+        text = path.read_text(encoding="utf-8")
+        # 只扫正文里的 wiki 链接；代码块/行内代码里的 [[示例]] 不算链接。
+        scan = re.sub(r"```.*?```", " ", text, flags=re.S)
+        scan = re.sub(r"`[^`\n]*`", " ", scan)
+        for target in re.findall(r"\[\[([^\]|]+)", scan):
+            if target not in slugs:
+                errors.append(f"{file_name} 链接不存在：[[{target}]]")
+
+    transport_path = src / "transport-events.json"
+    events: list = []
+    if transport_path.is_file():
+        try:
+            events = json.loads(transport_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            errors.append(f"transport-events.json 解析失败：{exc}")
+            events = []
+        if not isinstance(events, list):
+            errors.append("transport-events.json 顶层必须是数组")
+            events = []
+        required = {"id", "time", "from", "to", "kind", "status", "summary"}
+        for position, event in enumerate(events):
+            if not isinstance(event, dict):
+                errors.append(f"transport-events.json[{position}] 不是对象")
+                continue
+            missing_fields = required - set(event)
+            if missing_fields:
+                errors.append(
+                    f"transport-events.json[{position}] 缺字段：{', '.join(sorted(missing_fields))}"
+                )
+
+    site_js = src / "scripts" / "site.js"
+    if not site_js.is_file():
+        errors.append("缺 scripts/site.js")
+
+    if errors:
+        for error in errors:
+            print(f"[!!] {error}")
+        print(f"校验失败：{len(errors)} 项；未生成站点")
+        return 1
+
+    # ------------------------------------------------ 生成页面
     missing: list[str] = []
     for name, label, _ in PAGES:
-        f = src / f"{name}.md"
+        file_name = PAGE_FILES.get(name, f"{name}.md")
+        f = src / file_name
         if not f.is_file():
-            missing.append(name)
+            missing.append(file_name)
             continue
         md = f.read_text(encoding="utf-8")
         # 去掉 markdown 里的一级标题（页面标题已经在 <title> 和 h1 里）
         md = re.sub(r"^#\s+.*\n+", "", md, count=1)
         (out / f"{name}.html").write_text(page_html(name, label, md), encoding="utf-8")
 
-    if missing:
-        print(f"[!!] 缺页面: {', '.join(missing)}")
-
     (out / "style.css").write_text(CSS, encoding="utf-8")
+    shutil.copyfile(site_js, out / "site.js")
 
-    # 搜索索引（给未来的搜索框用）
-    index = {
-        name: {"title": label, "icon": icon}
-        for name, label, icon in PAGES
-    }
+    # 搜索索引：标题/摘要/标签/正文（正文截断，避免站点太大）
+    index = []
+    for name, label, icon in PAGES:
+        file_name = PAGE_FILES.get(name, f"{name}.md")
+        path = src / file_name
+        text = path.read_text(encoding="utf-8") if path.is_file() else ""
+        plain = re.sub(r"```.*?```", " ", text, flags=re.S)
+        plain = re.sub(r"[#>*_`|\[\]()~-]", " ", plain)
+        plain = re.sub(r"\s+", " ", plain).strip()
+        index.append(
+            {
+                "slug": name,
+                "title": label,
+                "icon": icon,
+                "summary": PAGE_SUMMARIES.get(name, ""),
+                "tags": PAGE_TAGS.get(name, []),
+                "text": plain[:4000],
+            }
+        )
     (out / "search-index.json").write_text(
         json.dumps(index, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    (out / "search-data.js").write_text(
+        "window.SEARCH_INDEX = " + json.dumps(index, ensure_ascii=False) + ";\n",
+        encoding="utf-8",
+    )
+
+    # 传输层事件（示例数据；真实数据以后从 trit-orch TraceStore 转换）
+    (out / "transport-data.js").write_text(
+        "window.TRANSPORT_EVENTS = " + json.dumps(events, ensure_ascii=False) + ";\n",
+        encoding="utf-8",
     )
 
     # 首页额外做一个 index.html 别名
@@ -472,7 +693,9 @@ def main() -> int:
     )
 
     print(f"生成 {len(PAGES)} 个页面 -> {out}")
+    print(f"传输事件：{len(events)} 条（示例数据）")
     return 1 if missing else 0
+
 
 
 if __name__ == "__main__":

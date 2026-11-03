@@ -10,9 +10,12 @@ trit-agent 的独立维基。内容用 Markdown 写（`*.md`），构建成静�
 
 ```
 .
-├── *.md              16 个维基页面（内容源）
+├── *.md              21 个维基页面（内容源）
+├── wiki.json         页面清单：slug/file/title/group/icon/summary/tags
+├── transport-events.json  传输层 UI 的示例事件（本地静态，非真实日志）
 ├── scripts/
-│   └── build_site.py Markdown → HTML 的生成器（零依赖）
+│   ├── build_site.py Markdown → HTML 的生成器（零依赖）
+│   └── site.js       搜索 + 传输层抽屉（零依赖）
 └── site/             构建产物（不入库，由 CI/脚本生成）
 ```
 
@@ -68,19 +71,37 @@ GitHub 原生 Wiki 的 `.wiki.git` 仓库**必须在网页端手工建过第一�
 3. 然后转义 HTML
 4. 最后才做行内格式和链接替换（避免破坏 HTML 实体）
 
-### 页面注册表
+### 页面清单（`wiki.json`）
 
-页面顺序、侧边栏分组、显示名都在脚本顶部的 `PAGES` / `GROUP_END` 里：
+页面顺序、侧边栏分组、标题、摘要、标签、文件名都在 `wiki.json` 里：
 
-```python
-PAGES = [
-    ("Home", "首页", "🏠"),
-    ("Getting-Started", "上手", "🚀"),
-    ...
-]
+```json
+{
+  "slug": "Coordination",
+  "file": "Coordination.md",
+  "title": "协调与传输",
+  "group": "原理",
+  "icon": "🔀",
+  "summary": "一轮能传什么，什么时候必须多轮",
+  "tags": ["原理", "协调", "传输", "调度"]
+}
 ```
 
-加新页面 = 加一行 + 写一个 `.md`。
+加新页面 = 加一条清单 + 写一个 `.md`。构建器会 fail-closed 校验：
+
+- slug 唯一；
+- 每个 `file` 存在；
+- 每个 `*.md`（除 `README.md`）都登记；
+- `[[内部链接]]` 目标存在（代码块/行内代码里的示例不算）；
+- `transport-events.json` 字段完整。
+
+### 搜索与传输层 UI
+
+- **搜索**：侧边栏输入框，按标题/摘要/标签/正文过滤，纯本地 `search-data.js`。
+- **传输徽标**：侧边栏“传输 N”；N = `transport-events.json` 的事件条数。
+- **抽屉**：点徽标打开；列出 from→to、类型、轮次、字节、状态；点一条展开 payload；可按状态筛选；`Esc` 关闭。
+- **无网络可用**：数据以 `window.TRANSPORT_EVENTS` 内嵌，不 fetch、不请求后端。
+- **示例数据**：`transport-events.json` 是演示，不是真实会话日志；以后从 `trit-orch` 的 `TraceStore` 转换。
 
 ---
 
@@ -104,6 +125,11 @@ PAGES = [
 | `Building` | 编译、测试、自检、模拟、端到端验证 |
 | `Design-Boundaries` | 诚实的边界、验证到哪一步 |
 | `Control-Channels` | 操控方式注册表、哪些路走不通 |
+| `Coordination` | 协调与传输：一轮能传什么，什么时候必须多轮 |
+| `Concept-Map` | 三进制概念地图：trit / trit-schedule / trit-orch / trit-immune / trit-agent |
+| `Agent-Interop` | 跨智能体通讯：信封、能力握手、四态回执 |
+| `Transport-UI` | 传输层 UI：徽标、抽屉、事件 schema |
+| `Docs-As-Artifacts` | 文档即工件：清单、渲染、发布 |
 
 ---
 

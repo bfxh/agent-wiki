@@ -1,0 +1,195 @@
+{
+  "title": "trit-agent 维基",
+  "subtitle": "用三值决策状态机替你在 Minecraft 里操作角色",
+  "pages": [
+    {
+      "slug": "Home",
+      "file": "Home.md",
+      "title": "首页",
+      "group": "首页",
+      "icon": "🏠",
+      "summary": "入口、仓库地图、阅读顺序",
+      "tags": ["入口", "总览"]
+    },
+    {
+      "slug": "Getting-Started",
+      "file": "Getting-Started.md",
+      "title": "上手",
+      "group": "上手",
+      "icon": "🚀",
+      "summary": "装、跑、按 F8",
+      "tags": ["上手", "安装"]
+    },
+    {
+      "slug": "Hotkeys",
+      "file": "Hotkeys.md",
+      "title": "热键",
+      "group": "上手",
+      "icon": "⌨️",
+      "summary": "F8 交还 · F9 急停 · F10 切视角",
+      "tags": ["上手", "操作"]
+    },
+    {
+      "slug": "Configuration",
+      "file": "Configuration.md",
+      "title": "配置",
+      "group": "上手",
+      "icon": "⚙️",
+      "summary": "配置项逐条解释",
+      "tags": ["上手", "配置"]
+    },
+    {
+      "slug": "Background-Daemon",
+      "file": "Background-Daemon.md",
+      "title": "后台守护进程",
+      "group": "上手",
+      "icon": "🔧",
+      "summary": "进游戏直接按 F8 —— 装一次，永久有效",
+      "tags": ["上手", "守护进程"]
+    },
+    {
+      "slug": "Tri-Value-FSM",
+      "file": "Tri-Value-FSM.md",
+      "title": "三值状态机",
+      "group": "原理",
+      "icon": "🎲",
+      "summary": "为什么不是「做 / 不做」两档",
+      "tags": ["原理", "三值", "FSM"]
+    },
+    {
+      "slug": "Perception",
+      "file": "Perception.md",
+      "title": "感知",
+      "group": "原理",
+      "icon": "👁️",
+      "summary": "两条通道，两个频率",
+      "tags": ["原理", "感知"]
+    },
+    {
+      "slug": "Gathering",
+      "file": "Gathering.md",
+      "title": "采集",
+      "group": "原理",
+      "icon": "🪓",
+      "summary": "真正难的是「什么时候不该砍」",
+      "tags": ["原理", "采集"]
+    },
+    {
+      "slug": "Architecture",
+      "file": "Architecture.md",
+      "title": "架构",
+      "group": "原理",
+      "icon": "🏗️",
+      "summary": "模块地图与数据流",
+      "tags": ["原理", "架构"]
+    },
+    {
+      "slug": "Coordination",
+      "file": "Coordination.md",
+      "title": "协调与传输",
+      "group": "原理",
+      "icon": "🔀",
+      "summary": "一轮能传什么，什么时候必须多轮",
+      "tags": ["原理", "协调", "传输", "调度"]
+    },
+    {
+      "slug": "Concept-Map",
+      "file": "Concept-Map.md",
+      "title": "三进制概念地图",
+      "group": "原理",
+      "icon": "🗺️",
+      "summary": "trit / trit-schedule / trit-orch / trit-immune / trit-agent 到底谁是谁",
+      "tags": ["原理", "三进制", "概念", "入口"]
+    },
+    {
+      "slug": "Data-Packs",
+      "file": "Data-Packs.md",
+      "title": "数据包",
+      "group": "Minecraft 侧",
+      "icon": "📦",
+      "summary": "数据包、起源包、装包的那些坑",
+      "tags": ["Minecraft", "数据包"]
+    },
+    {
+      "slug": "Sensor-Protocol",
+      "file": "Sensor-Protocol.md",
+      "title": "传感器协议",
+      "group": "Minecraft 侧",
+      "icon": "🔌",
+      "summary": "跨仓库的唯一集成点",
+      "tags": ["Minecraft", "协议"]
+    },
+    {
+      "slug": "Crash-Troubleshooting",
+      "file": "Crash-Troubleshooting.md",
+      "title": "崩溃排查",
+      "group": "Minecraft 侧",
+      "icon": "💥",
+      "summary": "不是渲染引擎的问题",
+      "tags": ["Minecraft", "排障"]
+    },
+    {
+      "slug": "Troubleshooting",
+      "file": "Troubleshooting.md",
+      "title": "没效果怎么查",
+      "group": "Minecraft 侧",
+      "icon": "🔍",
+      "summary": "每一件事都是静默的",
+      "tags": ["Minecraft", "排障"]
+    },
+    {
+      "slug": "Building",
+      "file": "Building.md",
+      "title": "构建与测试",
+      "group": "开发",
+      "icon": "🔨",
+      "summary": "编译、测试、自检",
+      "tags": ["开发", "构建"]
+    },
+    {
+      "slug": "Design-Boundaries",
+      "file": "Design-Boundaries.md",
+      "title": "能力边界",
+      "group": "开发",
+      "icon": "⚖️",
+      "summary": "知道做不到什么比知道能做什么更有用",
+      "tags": ["开发", "边界"]
+    },
+    {
+      "slug": "Control-Channels",
+      "file": "Control-Channels.md",
+      "title": "操控方式",
+      "group": "开发",
+      "icon": "🎛️",
+      "summary": "以后要接对讲机、语音、第二屏的落地清单",
+      "tags": ["开发", "通道"]
+    },
+    {
+      "slug": "Agent-Interop",
+      "file": "Agent-Interop.md",
+      "title": "跨智能体通讯",
+      "group": "开发",
+      "icon": "🤝",
+      "summary": "信封、能力握手、四态回执；兼容别的智能体",
+      "tags": ["开发", "互操作", "协议"]
+    },
+    {
+      "slug": "Transport-UI",
+      "file": "Transport-UI.md",
+      "title": "传输层 UI",
+      "group": "开发",
+      "icon": "📡",
+      "summary": "数字徽标 + 点开看传输了什么",
+      "tags": ["开发", "UI", "传输"]
+    },
+    {
+      "slug": "Docs-As-Artifacts",
+      "file": "Docs-As-Artifacts.md",
+      "title": "文档即工件",
+      "group": "开发",
+      "icon": "📚",
+      "summary": "谁管理、谁渲染、谁发布；HTML 不是真相",
+      "tags": ["开发", "文档", "清单"]
+    }
+  ]
+}
