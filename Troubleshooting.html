@@ -9,29 +9,39 @@
 <body>
 <div class="wrap">
 <nav>
+<div class="nav-tools">
+<input id="wiki-search" class="search-box" type="search" placeholder="搜索页面…" autocomplete="off" aria-label="搜索页面">
+<div id="search-results" class="search-results" hidden></div>
+<button id="tx-badge" class="tx-badge" type="button" aria-expanded="false" aria-controls="tx-drawer">传输 <span id="tx-count">0</span></button>
+</div>
 <a href="Home.html" class="">🏠 首页</a>
+<h2>上手</h2><div>
 <a href="Getting-Started.html" class="">🚀 上手</a>
 <a href="Hotkeys.html" class="">⌨️ 热键</a>
-<h2>上手</h2><div>
 <a href="Configuration.html" class="">⚙️ 配置</a>
 <a href="Background-Daemon.html" class="">🔧 后台守护进程</a>
-<a href="Tri-Value-FSM.html" class="">🎲 三值状态机</a>
-<a href="Perception.html" class="">👁️ 感知</a>
 </div>
 <h2>原理</h2><div>
+<a href="Tri-Value-FSM.html" class="">🎲 三值状态机</a>
+<a href="Perception.html" class="">👁️ 感知</a>
 <a href="Gathering.html" class="">🪓 采集</a>
 <a href="Architecture.html" class="">🏗️ 架构</a>
-<a href="Data-Packs.html" class="">📦 数据包</a>
-<a href="Sensor-Protocol.html" class="">🔌 传感器协议</a>
+<a href="Coordination.html" class="">🔀 协调与传输</a>
+<a href="Concept-Map.html" class="">🗺️ 三进制概念地图</a>
 </div>
 <h2>Minecraft 侧</h2><div>
+<a href="Data-Packs.html" class="">📦 数据包</a>
+<a href="Sensor-Protocol.html" class="">🔌 传感器协议</a>
 <a href="Crash-Troubleshooting.html" class="">💥 崩溃排查</a>
 <a href="Troubleshooting.html" class="on">🔍 没效果怎么查</a>
-<a href="Building.html" class="">🔨 构建与测试</a>
-<a href="Design-Boundaries.html" class="">⚖️ 能力边界</a>
 </div>
 <h2>开发</h2><div>
+<a href="Building.html" class="">🔨 构建与测试</a>
+<a href="Design-Boundaries.html" class="">⚖️ 能力边界</a>
 <a href="Control-Channels.html" class="">🎛️ 操控方式</a>
+<a href="Agent-Interop.html" class="">🤝 跨智能体通讯</a>
+<a href="Transport-UI.html" class="">📡 传输层 UI</a>
+<a href="Docs-As-Artifacts.html" class="">📚 文档即工件</a>
 </div>
 </nav>
 <main>
@@ -109,5 +119,23 @@
 </div>
 </main>
 </div>
+
+<div id="tx-overlay" class="tx-overlay" hidden></div>
+<aside id="tx-drawer" class="tx-drawer" role="dialog" aria-modal="true" aria-labelledby="tx-title" hidden>
+  <div class="tx-head">
+    <strong id="tx-title">传输记录</strong>
+    <span class="tx-note">示例数据</span>
+    <button id="tx-close" class="tx-close" type="button" aria-label="关闭">×</button>
+  </div>
+  <div class="tx-filters">
+    <label>状态 <select id="tx-filter"><option value="">全部</option></select></label>
+    <span class="tx-hint">点一条展开 payload</span>
+  </div>
+  <div id="tx-list" class="tx-list"></div>
+</aside>
+
+<script src="search-data.js"></script>
+<script src="transport-data.js"></script>
+<script src="site.js"></script>
 </body>
 </html>

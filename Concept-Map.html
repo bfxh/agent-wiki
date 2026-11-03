@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>三进制概念地图 · trit-agent 维基</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<div class="nav-tools">
+<input id="wiki-search" class="search-box" type="search" placeholder="搜索页面…" autocomplete="off" aria-label="搜索页面">
+<div id="search-results" class="search-results" hidden></div>
+<button id="tx-badge" class="tx-badge" type="button" aria-expanded="false" aria-controls="tx-drawer">传输 <span id="tx-count">0</span></button>
+</div>
+<a href="Home.html" class="">🏠 首页</a>
+<h2>上手</h2><div>
+<a href="Getting-Started.html" class="">🚀 上手</a>
+<a href="Hotkeys.html" class="">⌨️ 热键</a>
+<a href="Configuration.html" class="">⚙️ 配置</a>
+<a href="Background-Daemon.html" class="">🔧 后台守护进程</a>
+</div>
+<h2>原理</h2><div>
+<a href="Tri-Value-FSM.html" class="">🎲 三值状态机</a>
+<a href="Perception.html" class="">👁️ 感知</a>
+<a href="Gathering.html" class="">🪓 采集</a>
+<a href="Architecture.html" class="">🏗️ 架构</a>
+<a href="Coordination.html" class="">🔀 协调与传输</a>
+<a href="Concept-Map.html" class="on">🗺️ 三进制概念地图</a>
+</div>
+<h2>Minecraft 侧</h2><div>
+<a href="Data-Packs.html" class="">📦 数据包</a>
+<a href="Sensor-Protocol.html" class="">🔌 传感器协议</a>
+<a href="Crash-Troubleshooting.html" class="">💥 崩溃排查</a>
+<a href="Troubleshooting.html" class="">🔍 没效果怎么查</a>
+</div>
+<h2>开发</h2><div>
+<a href="Building.html" class="">🔨 构建与测试</a>
+<a href="Design-Boundaries.html" class="">⚖️ 能力边界</a>
+<a href="Control-Channels.html" class="">🎛️ 操控方式</a>
+<a href="Agent-Interop.html" class="">🤝 跨智能体通讯</a>
+<a href="Transport-UI.html" class="">📡 传输层 UI</a>
+<a href="Docs-As-Artifacts.html" class="">📚 文档即工件</a>
+</div>
+</nav>
+<main>
+<h1>三进制概念地图</h1><p class="subtitle">trit / trit-schedule / trit-orch / trit-immune / trit-agent 到底谁是谁</p>
+<p>&gt; 这一页只做一件事：把 <code>trit</code> / <code>trit-core</code> / <code>trit-schedule</code> / <code>trit-orch</code> /<br>&gt; <code>trit-immune</code> / <code>trit-agent</code> / <code>repo-tools</code> / <code>agent-wiki</code> 的关系讲清楚。<br>&gt; 先看一张图，再看“我该读哪个”，最后是术语表。</p>
+<hr>
+<h2>1. 一张图</h2>
+<p><pre><code class="language-text">                         bfxh/trit（Rust workspace）
+                         ├─ trit-core       三值逻辑内核：Ternary / K3 / Ł3 / B3
+                         ├─ sansheng        crates.io 上的发布门面
+                         ├─ trit-schedule   静态三值 DAG 调度 + 运行时/检查点
+                         ├─ trit-orch       准入/选择/预算/上下文/副作用/轨迹
+                         ├─ trit-belnap     Belnap 四值（矛盾检测）
+                         ├─ trit-policy     策略/门禁
+                         ├─ trit-net       网络面
+                         └─ ...             其他数值/电路/GPU/训练 crate
+
+bfxh/trit-immune（独立仓 + 单体仓内 crates/trit-immune）
+  └─ 安全裁决内核：K3 裁决 + 因果 DAG + 账本 + 舰队 + 坐标 + 门禁 + 回滚
+
+bfxh/trit-agent（Rust）  ←→  bfxh/trit-mc（Minecraft 数据包）
+  └─ 三值决策状态机 + 输入注入 + 感知解析
+
+bfxh/repo-tools（Python）      仓库运维：快照/回滚/发布/依赖脱离
+bfxh/agent-wiki（本仓）        文档 + 静态站 + 传输层 UI
+bfxh/arch-optimize             架构扫描/回归守卫
+</code></pre></p>
+<hr>
+<h2>2. 我该读哪个？</h2>
+<table>
+<thead><tr><th>你想做的事</th><th>先读</th><th>关键类型/命令</th><th>不要用它做</th></tr></thead>
+<tbody><tr><td>用三值逻辑（K3/Ł3/B3）</td><td><code>trit-core</code></td><td><code>Ternary::{True,Unknown,False}</code>、真值表、<code>&amp;</code>/<code>\|</code></td><td>不要拿它做调度</td></tr><tr><td>发一个三值库</td><td><code>sansheng</code></td><td>发布门面/版本</td><td>不要直接发 workspace 内部 crate</td></tr><tr><td>排一个静态 DAG</td><td><code>trit-schedule</code></td><td><code>Task</code>、<code>Dependency</code>、<code>Schedule</code>、<code>run_resumable</code></td><td>不要指望它管认领/权限</td></tr><tr><td>决定“这一轮能不能传”</td><td><code>trit-orch</code></td><td><code>admit</code>、<code>dependency_gate</code>、<code>Plan::select</code>、<code>compaction_gate</code>、<code>Ledger</code></td><td>不要用它执行外部调用</td></tr><tr><td>做安全裁决/仓库治理</td><td><code>trit-immune</code></td><td><code>Trit</code>、<code>ImmuneDag</code>、<code>Journal</code>、<code>Fleet</code>、<code>policy::decide</code></td><td>不要把它当通用调度器</td></tr><tr><td>做 Minecraft 角色托管</td><td><code>trit-agent</code> + <code>trit-mc</code></td><td><code>fsm.rs</code>、<code>Sensor</code>、<code>CommandSink</code></td><td>不要把它当通用 agent 框架</td></tr><tr><td>仓库自动化（快照/发布）</td><td><code>repo-tools</code></td><td><code>snapshot.py</code>、<code>publish</code>、<code>detach</code></td><td>不要把它当协议核心</td></tr><tr><td>写文档/看文档</td><td><code>agent-wiki</code></td><td><code>*.md</code>、<code>wiki.json</code>、<code>scripts/build_site.py</code></td><td>不要把 HTML 当真相</td></tr></tbody>
+</table>
+<hr>
+<h2>3. 最容易混的几组</h2>
+<h3>3.1 <code>trit</code>、<code>trit-core</code>、<code>sansheng</code></h3>
+<ul>
+<li><strong><code>trit</code></strong>：整个 Rust workspace / 仓库名；也可是 CLI 的泛称。</li>
+<li><strong><code>trit-core</code></strong>：三值逻辑内核，定义 <code>Ternary</code> 和真值表；其他 crate 依赖它。</li>
+<li><strong><code>sansheng</code></strong>：发布到 crates.io 的门面 crate；不是另一套逻辑。</li>
+</ul>
+<h3>3.2 <code>Ternary</code> 与 <code>Trit</code></h3>
+<ul>
+<li><strong><code>Ternary</code></strong>：<code>trit-core</code> 的通用三值类型，<code>True/Unknown/False</code>。</li>
+<li><strong><code>Trit</code></strong>：<code>trit-immune</code> 的裁决枚举，<code>Hardened/Unknown/Vulnerable</code>。</li>
+<li><code>trit-immune/compat.rs</code> 做双向映射与 3×3 同构穷举；<strong>语义对齐，但不是同一个类型</strong>。</li>
+</ul>
+<h3>3.3 <code>trit-schedule</code> 与 <code>trit-orch</code></h3>
+<ul>
+<li><strong><code>trit-schedule</code></strong>：静态 DAG 算法 + 运行时。输入任务图/worker/优先级，输出 makespan/关键路径/延迟。</li>
+<li><strong><code>trit-orch</code></strong>：在调度之上加<strong>准入/预算/上下文/副作用/进度</strong>。它回答“这一轮能不能传、传哪个、传完算不算”。</li>
+<li>一句话：<code>trit-schedule</code> 是“怎么排”，<code>trit-orch</code> 是“能不能传/传完算不算”。</li>
+</ul>
+<h3>3.4 <code>trit-agent</code> 与 <code>trit-orch</code></h3>
+<ul>
+<li><strong><code>trit-agent</code></strong>：Minecraft 领域的智能体（感知/FSM/注入）；有自己的 <code>trit.rs</code> 三值工具。</li>
+<li><strong><code>trit-orch</code></strong>：通用编排/传输层；不包含 Minecraft 逻辑，也不直接执行输入注入。</li>
+<li>二者可复用“Unknown 弃权/三值裁决”的语义，但不强行合并。</li>
+</ul>
+<h3>3.5 两个 <code>trit-immune</code></h3>
+<ul>
+<li><strong>单体仓</strong>：<code>bfxh/trit</code> 的 <code>crates/trit-immune</code>（便于一起跑 CI/发布）。</li>
+<li><strong>独立仓</strong>：<code>bfxh/trit-immune</code>（独立版本/独立 CI）。</li>
+<li>两份副本内容可能相同（<code>crate_twin</code> 会提示），同步靠 <code>sync-upstream.sh</code>；<strong>不要以为路径不同就是不同代码</strong>。</li>
+</ul>
+<h3>3.6 <code>trit-parts</code> 与 <code>trit-parts-wiki</code></h3>
+<ul>
+<li><code>trit-parts</code> 是项目仓；<code>trit-parts.wiki</code> 是它的 GitHub Wiki 克隆。</li>
+<li>本仓 <code>agent-wiki</code> 是独立仓 + GitHub Pages，<strong>不是</strong> <code>.wiki.git</code>；原因见 <a href="Docs-As-Artifacts.html">文档即工件</a>。</li>
+</ul>
+<hr>
+<h2>4. 术语表</h2>
+<table>
+<thead><tr><th>术语</th><th>一句话</th><th>出处</th></tr></thead>
+<tbody><tr><td><code>Ternary</code></td><td>三值：<code>True/Unknown/False</code></td><td><code>trit-core</code></td></tr><tr><td><code>Trit</code></td><td>免疫裁决：<code>Hardened/Unknown/Vulnerable</code></td><td><code>trit-immune</code></td></tr><tr><td>K3</td><td>Kleene 三值逻辑；<code>Unknown</code> 遇到 <code>False</code> 仍是 <code>False</code></td><td><code>trit-core</code></td></tr><tr><td>Ł3</td><td>Łukasiewicz 三值逻辑</td><td><code>trit-core</code></td></tr><tr><td>B3</td><td>Bochvar 三值逻辑</td><td><code>trit-core</code></td></tr><tr><td>Belnap FOUR</td><td>四值：真/假/未知/矛盾；矛盾是信息</td><td><code>trit-belnap</code></td></tr><tr><td><code>Unknown</code></td><td>不是“失败”，也不是“通过”；是“需要更多证据”</td><td>全部</td></tr><tr><td><code>admit</code></td><td>四门 K3 AND：依赖/授权/资源/新鲜度</td><td><code>trit-orch</code></td></tr><tr><td><code>dependency_gate</code></td><td><code>False→True</code>、<code>Unknown→Unknown</code>、<code>True→evidence</code></td><td><code>trit-orch</code></td></tr><tr><td><code>epoch</code></td><td>任务定义版本；旧 epoch 的结果自动失效</td><td><code>trit-orch</code></td></tr><tr><td><code>freshness</code></td><td>读数/证据是否属于当前 revision</td><td><code>trit-orch</code></td></tr><tr><td><code>CheckReport</code></td><td>验收报告；当前 epoch + 至少一条断言才有效</td><td><code>trit-orch</code></td></tr><tr><td><code>compaction</code></td><td>长上下文压缩：Keep/Prune/Summarize</td><td><code>trit-orch</code></td></tr><tr><td><code>Effect</code></td><td>外部副作用六态：Prepared/Sending/Sent/Confirmed/Refuted/Unknown</td><td><code>trit-orch</code></td></tr><tr><td><code>fence</code></td><td>单调栅栏；旧执行器不能提交</td><td><code>trit-orch</code></td></tr><tr><td><code>claim</code></td><td>路径认领；谁在写</td><td><code>agent_claims.py</code>（待 Rust 化）</td></tr><tr><td><code>lease</code></td><td>认领租约；TTL + 续约</td><td>待实现</td></tr><tr><td><code>handoff</code></td><td>交接包：目标/状态哈希/决策/证据/下一步</td><td>本维基</td></tr><tr><td><code>HLC</code></td><td>混合逻辑时钟；跨会话因果序</td><td><code>trit-immune</code></td></tr><tr><td><code>CRDT</code></td><td>无冲突复制数据类型；可交换状态合并</td><td><code>trit-immune</code></td></tr><tr><td><code>manifest</code></td><td>文档清单 <code>wiki.json</code>；页面/分组/标签/摘要</td><td>本仓</td></tr><tr><td><code>mutation</code></td><td>变异测试；必须“指定断言红”才算锁</td><td>仓库门禁</td></tr><tr><td><code>module budget</code></td><td>单文件行数预算；只减不增</td><td>仓库门禁</td></tr><tr><td><code>shadow replay</code></td><td>策略只提议、内核照旧决定；用于安全试验</td><td><code>trit-orch</code></td></tr></tbody>
+</table>
+<hr>
+<h2>5. 推荐阅读路径</h2>
+<h3>路径 A：我只想用三值逻辑</h3>
+<p><code>trit-core</code> 的 <code>Ternary</code> + 真值表 → <code>sansheng</code> 的发布形态 → 需要矛盾检测再看 <code>trit-belnap</code>。</p>
+<h3>路径 B：我想做任务调度</h3>
+<p><code>trit-schedule</code> 的 <code>Task/Dependency/Schedule</code> → <code>trit-orch</code> 的 <code>admit/Plan::select</code> → <a href="Coordination.html">协调与传输</a>。</p>
+<h3>路径 C：我想做 agent 的“传输/轮次”</h3>
+<p><a href="Coordination.html">协调与传输</a> → <a href="Transport-UI.html">传输层 UI</a> → <code>trit-orch</code> 的 <code>admission/context/effects</code> → <a href="Agent-Interop.html">跨智能体通讯</a>。</p>
+<h3>路径 D：我想做仓库治理/安全裁决</h3>
+<p><code>trit-immune</code> 的 <code>Trit/ImmuneDag/Journal/policy</code> → <code>repo-tools</code> 的 snapshot/publish → 本维基的 <a href="Docs-As-Artifacts.html">文档即工件</a>。</p>
+<h3>路径 E：我想看 Minecraft agent</h3>
+<p><a href="Architecture.html">架构</a> → <a href="Tri-Value-FSM.html">三值状态机</a> → <a href="Perception.html">感知</a> → <a href="Sensor-Protocol.html">传感器协议</a>。</p>
+<hr>
+<h2>6. 一句话总结</h2>
+<p><strong><code>trit</code> 是工具箱，<code>trit-core</code> 是真值，<code>trit-schedule</code> 是排程，<code>trit-orch</code> 是传输/准入，<br><code>trit-immune</code> 是裁决/账本，<code>trit-agent</code> 是 Minecraft 智能体，<code>repo-tools</code> 是仓库运维，<code>agent-wiki</code> 是文档。</strong><br>先把这条线记住，再看任何单页都不会乱。</p>
+<div class="pager"><a href="Coordination.html">← 协调与传输</a><a class="next" href="Data-Packs.html">数据包 →</a></div>
+<div class="meta">
+  <span class="badge">trit-agent 维基</span>
+  <span class="badge">bfxh/agent-wiki</span>
+  <span class="badge">Rust · Minecraft · 零依赖</span>
+</div>
+</main>
+</div>
+
+<div id="tx-overlay" class="tx-overlay" hidden></div>
+<aside id="tx-drawer" class="tx-drawer" role="dialog" aria-modal="true" aria-labelledby="tx-title" hidden>
+  <div class="tx-head">
+    <strong id="tx-title">传输记录</strong>
+    <span class="tx-note">示例数据</span>
+    <button id="tx-close" class="tx-close" type="button" aria-label="关闭">×</button>
+  </div>
+  <div class="tx-filters">
+    <label>状态 <select id="tx-filter"><option value="">全部</option></select></label>
+    <span class="tx-hint">点一条展开 payload</span>
+  </div>
+  <div id="tx-list" class="tx-list"></div>
+</aside>
+
+<script src="search-data.js"></script>
+<script src="transport-data.js"></script>
+<script src="site.js"></script>
+</body>
+</html>

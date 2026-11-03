@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>文档即工件 · trit-agent 维基</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<div class="nav-tools">
+<input id="wiki-search" class="search-box" type="search" placeholder="搜索页面…" autocomplete="off" aria-label="搜索页面">
+<div id="search-results" class="search-results" hidden></div>
+<button id="tx-badge" class="tx-badge" type="button" aria-expanded="false" aria-controls="tx-drawer">传输 <span id="tx-count">0</span></button>
+</div>
+<a href="Home.html" class="">🏠 首页</a>
+<h2>上手</h2><div>
+<a href="Getting-Started.html" class="">🚀 上手</a>
+<a href="Hotkeys.html" class="">⌨️ 热键</a>
+<a href="Configuration.html" class="">⚙️ 配置</a>
+<a href="Background-Daemon.html" class="">🔧 后台守护进程</a>
+</div>
+<h2>原理</h2><div>
+<a href="Tri-Value-FSM.html" class="">🎲 三值状态机</a>
+<a href="Perception.html" class="">👁️ 感知</a>
+<a href="Gathering.html" class="">🪓 采集</a>
+<a href="Architecture.html" class="">🏗️ 架构</a>
+<a href="Coordination.html" class="">🔀 协调与传输</a>
+<a href="Concept-Map.html" class="">🗺️ 三进制概念地图</a>
+</div>
+<h2>Minecraft 侧</h2><div>
+<a href="Data-Packs.html" class="">📦 数据包</a>
+<a href="Sensor-Protocol.html" class="">🔌 传感器协议</a>
+<a href="Crash-Troubleshooting.html" class="">💥 崩溃排查</a>
+<a href="Troubleshooting.html" class="">🔍 没效果怎么查</a>
+</div>
+<h2>开发</h2><div>
+<a href="Building.html" class="">🔨 构建与测试</a>
+<a href="Design-Boundaries.html" class="">⚖️ 能力边界</a>
+<a href="Control-Channels.html" class="">🎛️ 操控方式</a>
+<a href="Agent-Interop.html" class="">🤝 跨智能体通讯</a>
+<a href="Transport-UI.html" class="">📡 传输层 UI</a>
+<a href="Docs-As-Artifacts.html" class="on">📚 文档即工件</a>
+</div>
+</nav>
+<main>
+<h1>文档即工件</h1><p class="subtitle">谁管理、谁渲染、谁发布；HTML 不是真相</p>
+<p>&gt; 这一页解决“东西太多、无法管理”的问题。<br>&gt; 结论：<strong>HTML 只是渲染器，不是真相；真相是 Markdown + <code>wiki.json</code> 清单。</strong><br>&gt; 管理文档的是“代替 Git 的那个软件”（编排/仓库治理层），不是前端。</p>
+<hr>
+<h2>1. 问题</h2>
+<ul>
+<li>页面一多，靠硬编码导航就会漏、会重、会找不到。</li>
+<li>只靠 HTML 手改，改完就丢源；只靠 Markdown，又没有索引/搜索/分组。</li>
+<li>多个智能体同时写文档，没有清单就会“你写你的、它写它的”。</li>
+</ul>
+<hr>
+<h2>2. 四层</h2>
+<p><pre><code class="language-text">源        Markdown（*.md）+ wiki.json（清单）
+  ↓
+管理      trit-orch / 仓库治理层：索引、链接、版本、冲突、发布
+  ↓
+渲染      scripts/build_site.py：Markdown → HTML（零依赖）
+  ↓
+远端      GitHub Pages（或本地 site/index.html）
+</code></pre></p>
+<ul>
+<li><strong>源</strong>：唯一真相；人和智能体只改这里。</li>
+<li><strong>管理</strong>：负责“有哪些页、属于哪组、谁负责、是否过期、链接是否断”。</li>
+<li><strong>渲染</strong>：只做格式转换；不拥有内容、不做业务判断。</li>
+<li><strong>远端</strong>：静态产物；可重建、可丢弃。</li>
+</ul>
+<hr>
+<h2>3. <code>wiki.json</code> 清单</h2>
+<p><pre><code class="language-json">{
+  &quot;title&quot;: &quot;trit-agent 维基&quot;,
+  &quot;subtitle&quot;: &quot;...&quot;,
+  &quot;pages&quot;: [
+    {
+      &quot;slug&quot;: &quot;Coordination&quot;,
+      &quot;file&quot;: &quot;Coordination.md&quot;,
+      &quot;title&quot;: &quot;协调与传输&quot;,
+      &quot;group&quot;: &quot;原理&quot;,
+      &quot;icon&quot;: &quot;🔀&quot;,
+      &quot;summary&quot;: &quot;一轮能传什么，什么时候必须多轮&quot;,
+      &quot;tags&quot;: [&quot;原理&quot;, &quot;协调&quot;, &quot;传输&quot;, &quot;调度&quot;]
+    }
+  ]
+}
+</code></pre></p>
+<p>字段：</p>
+<table>
+<thead><tr><th>字段</th><th>作用</th></tr></thead>
+<tbody><tr><td><code>slug</code></td><td>输出 HTML 文件名/内部链接目标</td></tr><tr><td><code>file</code></td><td>源 Markdown 文件</td></tr><tr><td><code>title</code></td><td>导航显示名</td></tr><tr><td><code>group</code></td><td>侧边栏分组</td></tr><tr><td><code>icon</code></td><td>导航图标（可选）</td></tr><tr><td><code>summary</code></td><td>副标题/搜索摘要</td></tr><tr><td><code>tags</code></td><td>搜索/筛选</td></tr></tbody>
+</table>
+<h3>校验规则（建议进门禁）</h3>
+<ol>
+<li><code>wiki.json</code> 能解析；<code>slug</code> 唯一。</li>
+<li>每个 <code>file</code> 存在；每个 <code>*.md</code>（除 <code>README.md</code>）都在清单里。</li>
+<li><code>[[内部链接]]</code> 的目标存在。</li>
+<li>每个页面有 <code>title/group/summary/tags</code>。</li>
+<li><code>transport-events.json</code> 能解析；事件字段完整。</li>
+</ol>
+<hr>
+<h2>4. 生命周期</h2>
+<p><pre><code class="language-text">draft -&gt; review -&gt; published -&gt; stale -&gt; archived
+</code></pre></p>
+<ul>
+<li><code>draft</code>：可以没有完整链接；不进导航。</li>
+<li><code>review</code>：至少一个 owner 看过；链接/命令可执行。</li>
+<li><code>published</code>：进导航、进搜索。</li>
+<li><code>stale</code>：超过 N 天没更新，或依赖的 commit/版本已变；页面顶部显示提示。</li>
+<li><code>archived</code>：不再维护；保留链接，标注“已归档”。</li>
+</ul>
+<p>&gt; 清单里建议加 <code>status</code>、<code>owner</code>、<code>updated</code>、<code>source_commit</code> 四个字段；<br>&gt; 现在先保持最小（slug/file/title/group/icon/summary/tags），后续再扩。</p>
+<hr>
+<h2>5. 可管理性：分组、标签、搜索</h2>
+<ul>
+<li><strong>分组</strong>：按“上手 / 原理 / Minecraft 侧 / 开发”分，不要按文件名堆。</li>
+<li><strong>标签</strong>：跨组检索（如 <code>三值</code>、<code>调度</code>、<code>传输</code>、<code>排障</code>）。</li>
+<li><strong>搜索</strong>：<code>build_site.py</code> 生成 <code>search-data.js</code>，前端按标题/摘要/标签/正文过滤。</li>
+<li><strong>先读</strong>：<code>Home.md</code> + <a href="Concept-Map.html">三进制概念地图</a> 给两条路径（用三值 / 做调度 / 做 agent）。</li>
+<li><strong>去重</strong>：同一主题只留一页；重复页合并，不并行维护。</li>
+</ul>
+<hr>
+<h2>6. 多智能体写文档</h2>
+<ul>
+<li><strong>单写者</strong>：同一页同一时间一个写者；用 claim/lease。</li>
+<li><strong>清单先行</strong>：新增页先改 <code>wiki.json</code>，再写 <code>.md</code>；否则渲染器不知道。</li>
+<li><strong>冲突检测</strong>：</li>
+<li>路径重叠：同一 <code>file</code>。</li>
+<li>内容重叠：同一标题/同一段落/同一命令。</li>
+<li>语义重叠：同一主题的两个页（合并，不并存）。</li>
+<li><strong>交接包</strong>：目标、状态哈希、已定决策、未决问题、下一步；见 <a href="Coordination.html">协调与传输</a>。</li>
+<li><strong>回执</strong>：<code>Sent/Delivered/Read/Acted</code>；不要用“我写了”代替“渲染出来了”。</li>
+</ul>
+<hr>
+<h2>7. 发布</h2>
+<p><pre><code class="language-bash">python scripts/build_site.py --src . --out site
+# 本地看
+python -m http.server 8000 --directory site
+# 打开 http://localhost:8000/
+</code></pre></p>
+<ul>
+<li>GitHub Pages 可以指向 <code>gh-pages</code> 分支（本仓已有在线版）。</li>
+<li>也可以把 <code>site/</code> 作为 CI 产物上传；不要让 CI 直接改 <code>.md</code>。</li>
+<li>发布前跑校验：清单、链接、transport JSON、HTML 生成。</li>
+<li><strong>不要手改 <code>site/</code></strong>：它是产物；下次构建会被覆盖。</li>
+</ul>
+<hr>
+<h2>8. 验收门</h2>
+<table>
+<thead><tr><th>门</th><th>判据</th><th>反例</th></tr></thead>
+<tbody><tr><td>D1</td><td><code>wiki.json</code> 可解析、slug 唯一</td><td>重复 slug → 红</td></tr><tr><td>D2</td><td>每个 <code>file</code> 存在、每个 md 在清单里</td><td>孤儿页 → 红</td></tr><tr><td>D3</td><td><code>[[链接]]</code> 都能解析</td><td>断链 → 红</td></tr><tr><td>D4</td><td>每页有 title/group/summary/tags</td><td>缺字段 → 红</td></tr><tr><td>D5</td><td><code>transport-events.json</code> 字段完整</td><td>缺 status → 红</td></tr><tr><td>D6</td><td><code>build_site.py</code> 生成 0 缺失</td><td>缺页 → 红</td></tr><tr><td>D7</td><td>本地 <code>file://</code> 打开可用（无 fetch）</td><td>依赖网络 → 红</td></tr></tbody>
+</table>
+<hr>
+<h2>9. 与“代替 Git 的那个软件”的关系</h2>
+<ul>
+<li><strong>它管理</strong>：清单、链接、版本、冲突、发布、过期标记。</li>
+<li><strong>HTML 不管理</strong>：只渲染；不拥有内容；不做裁决。</li>
+<li><strong>GitHub 是远端</strong>：镜像/Pages，不是唯一真相。</li>
+<li><strong>智能体只改源</strong>：<code>*.md</code> + <code>wiki.json</code>；渲染产物可随时重建。</li>
+</ul>
+<p>&gt; 一句话：<strong>文档是工件，清单是索引，HTML 是视图。</strong><br>&gt; 不要把视图当真相，也不要把“能打开”当成“管理好了”。</p>
+<div class="pager"><a href="Transport-UI.html">← 传输层 UI</a></div>
+<div class="meta">
+  <span class="badge">trit-agent 维基</span>
+  <span class="badge">bfxh/agent-wiki</span>
+  <span class="badge">Rust · Minecraft · 零依赖</span>
+</div>
+</main>
+</div>
+
+<div id="tx-overlay" class="tx-overlay" hidden></div>
+<aside id="tx-drawer" class="tx-drawer" role="dialog" aria-modal="true" aria-labelledby="tx-title" hidden>
+  <div class="tx-head">
+    <strong id="tx-title">传输记录</strong>
+    <span class="tx-note">示例数据</span>
+    <button id="tx-close" class="tx-close" type="button" aria-label="关闭">×</button>
+  </div>
+  <div class="tx-filters">
+    <label>状态 <select id="tx-filter"><option value="">全部</option></select></label>
+    <span class="tx-hint">点一条展开 payload</span>
+  </div>
+  <div id="tx-list" class="tx-list"></div>
+</aside>
+
+<script src="search-data.js"></script>
+<script src="transport-data.js"></script>
+<script src="site.js"></script>
+</body>
+</html>

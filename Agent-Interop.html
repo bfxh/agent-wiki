@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>跨智能体通讯 · trit-agent 维基</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+<div class="nav-tools">
+<input id="wiki-search" class="search-box" type="search" placeholder="搜索页面…" autocomplete="off" aria-label="搜索页面">
+<div id="search-results" class="search-results" hidden></div>
+<button id="tx-badge" class="tx-badge" type="button" aria-expanded="false" aria-controls="tx-drawer">传输 <span id="tx-count">0</span></button>
+</div>
+<a href="Home.html" class="">🏠 首页</a>
+<h2>上手</h2><div>
+<a href="Getting-Started.html" class="">🚀 上手</a>
+<a href="Hotkeys.html" class="">⌨️ 热键</a>
+<a href="Configuration.html" class="">⚙️ 配置</a>
+<a href="Background-Daemon.html" class="">🔧 后台守护进程</a>
+</div>
+<h2>原理</h2><div>
+<a href="Tri-Value-FSM.html" class="">🎲 三值状态机</a>
+<a href="Perception.html" class="">👁️ 感知</a>
+<a href="Gathering.html" class="">🪓 采集</a>
+<a href="Architecture.html" class="">🏗️ 架构</a>
+<a href="Coordination.html" class="">🔀 协调与传输</a>
+<a href="Concept-Map.html" class="">🗺️ 三进制概念地图</a>
+</div>
+<h2>Minecraft 侧</h2><div>
+<a href="Data-Packs.html" class="">📦 数据包</a>
+<a href="Sensor-Protocol.html" class="">🔌 传感器协议</a>
+<a href="Crash-Troubleshooting.html" class="">💥 崩溃排查</a>
+<a href="Troubleshooting.html" class="">🔍 没效果怎么查</a>
+</div>
+<h2>开发</h2><div>
+<a href="Building.html" class="">🔨 构建与测试</a>
+<a href="Design-Boundaries.html" class="">⚖️ 能力边界</a>
+<a href="Control-Channels.html" class="">🎛️ 操控方式</a>
+<a href="Agent-Interop.html" class="on">🤝 跨智能体通讯</a>
+<a href="Transport-UI.html" class="">📡 传输层 UI</a>
+<a href="Docs-As-Artifacts.html" class="">📚 文档即工件</a>
+</div>
+</nav>
+<main>
+<h1>跨智能体通讯</h1><p class="subtitle">信封、能力握手、四态回执；兼容别的智能体</p>
+<p>&gt; 目标：能和别的智能体/宿主协作，但<strong>不共享内部实现</strong>。<br>&gt; 只在通讯层约定：信封、能力、回执、幂等、超时。<br>&gt; 对应实现：<code>trit-orch::effects</code> 的六态台账；本页是协议层说明书。</p>
+<hr>
+<h2>0. 边界</h2>
+<ul>
+<li><strong>共享</strong>：消息信封、能力名、内容类型、回执状态、幂等键、过期时间。</li>
+<li><strong>不共享</strong>：对方的内部任务模型、调度算法、账本格式、模型/工具实现。</li>
+<li><strong>不直接操控</strong>：一个智能体不能命令另一个智能体执行写操作；只能 propose，目标 accept 后才执行。</li>
+</ul>
+<hr>
+<h2>1. 信封</h2>
+<p><pre><code class="language-json">{
+  &quot;v&quot;: 1,
+  &quot;id&quot;: &quot;msg-01J...&quot;,
+  &quot;idempotency_key&quot;: &quot;handoff:trit-re:0007&quot;,
+  &quot;from&quot;: {
+    &quot;agent&quot;: &quot;qoder/179ea139&quot;,
+    &quot;role&quot;: &quot;worker&quot;,
+    &quot;capabilities&quot;: [&quot;read:repo&quot;, &quot;write:src/trit-re&quot;]
+  },
+  &quot;to&quot;: {
+    &quot;agent&quot;: &quot;qoder/dc34ac09&quot;,
+    &quot;role&quot;: &quot;reviewer&quot;
+  },
+  &quot;intent&quot;: &quot;review&quot;,
+  &quot;content_type&quot;: &quot;application/json&quot;,
+  &quot;body&quot;: { &quot;...&quot;: &quot;...&quot; },
+  &quot;refs&quot;: [
+    &quot;commit:0725d92&quot;,
+    &quot;file:crates/trit-re/src/pe/coff.rs&quot;,
+    &quot;issue:232&quot;
+  ],
+  &quot;sent_at&quot;: &quot;2026-11-03T13:20:00+08:00&quot;,
+  &quot;deadline&quot;: &quot;2026-11-03T13:35:00+08:00&quot;,
+  &quot;reply_to&quot;: &quot;msg-01J...&quot;,
+  &quot;signature&quot;: null
+}
+</code></pre></p>
+<p>字段说明：</p>
+<table>
+<thead><tr><th>字段</th><th>必填</th><th>作用</th></tr></thead>
+<tbody><tr><td><code>v</code></td><td>是</td><td>协议版本；不兼容要拒绝，不要猜</td></tr><tr><td><code>id</code></td><td>是</td><td>消息 ID</td></tr><tr><td><code>idempotency_key</code></td><td>是</td><td>去重；重复投递不重复执行</td></tr><tr><td><code>from/to</code></td><td>是</td><td>身份 + 能力；不是“命令”</td></tr><tr><td><code>intent</code></td><td>是</td><td><code>propose/accept/reject/query/reply/handoff/claim</code></td></tr><tr><td><code>content_type</code></td><td>是</td><td><code>text/markdown</code> / <code>application/json</code> / <code>application/jsonl</code></td></tr><tr><td><code>body</code></td><td>是</td><td>载荷；大小有上限</td></tr><tr><td><code>refs</code></td><td>否</td><td>证据指针：commit/file/issue/line</td></tr><tr><td><code>deadline</code></td><td>否</td><td>过期后不得直接执行，只能当线索</td></tr><tr><td><code>reply_to</code></td><td>否</td><td>线程/因果链</td></tr><tr><td><code>signature</code></td><td>否</td><td>需要时签名；不默认强制</td></tr></tbody>
+</table>
+<hr>
+<h2>2. 握手与能力</h2>
+<p>连接建立时交换：</p>
+<p><pre><code class="language-json">{
+  &quot;v&quot;: 1,
+  &quot;agent&quot;: &quot;qoder/179ea139&quot;,
+  &quot;capabilities&quot;: [
+    {&quot;scope&quot;: &quot;repo:bfxh/trit&quot;, &quot;actions&quot;: [&quot;read&quot;]},
+    {&quot;scope&quot;: &quot;path:crates/trit-re/**&quot;, &quot;actions&quot;: [&quot;read&quot;, &quot;write&quot;, &quot;claim&quot;]},
+    {&quot;scope&quot;: &quot;pr:232&quot;, &quot;actions&quot;: [&quot;review&quot;, &quot;comment&quot;]}
+  ],
+  &quot;content_types&quot;: [&quot;text/markdown&quot;, &quot;application/json&quot;],
+  &quot;receipt_modes&quot;: [&quot;sent&quot;, &quot;delivered&quot;, &quot;read&quot;, &quot;acted&quot;],
+  &quot;limits&quot;: {&quot;max_body_bytes&quot;: 262144, &quot;max_hops&quot;: 2}
+}
+</code></pre></p>
+<p>规则：</p>
+<ul>
+<li>能力是<strong>最小集</strong>，不是“全权”。</li>
+<li>能力有作用域（repo/path/PR/工具），不是全局开关。</li>
+<li>能力可过期；过期后需要重新握手。</li>
+<li>不支持的能力 → 拒绝，不降级成“试试看”。</li>
+</ul>
+<hr>
+<h2>3. 投递语义</h2>
+<ul>
+<li><strong>at-least-once</strong>：允许重复，不允许静默丢失。</li>
+<li><strong>去重</strong>：接收方按 <code>idempotency_key</code> 去重。</li>
+<li><strong>顺序</strong>：用 HLC/因果向量；只保证同一路径的因果序，不追求全局全序。</li>
+<li><strong>超时</strong>：状态记 <code>Unknown</code>，不是 <code>NotSent</code>/<code>NotRead</code>；不要写“对方没回”。</li>
+<li><strong>回执四态</strong>：</li>
+</ul>
+<table>
+<thead><tr><th>状态</th><th>含义</th><th>证据</th></tr></thead>
+<tbody><tr><td><code>Sent</code></td><td>已发出</td><td>发送日志</td></tr><tr><td><code>Delivered</code></td><td>对方进程收到</td><td>传输层 ack</td></tr><tr><td><code>Read</code></td><td>对方读过</td><td>读取事件</td></tr><tr><td><code>Acted</code></td><td>对方据此行动</td><td>关联的写/PR/门</td></tr></tbody>
+</table>
+<p>&gt; 只有 <code>Acted</code> 才能说“对方照做了”。<code>Sent</code> 只说明“我发了”。</p>
+<hr>
+<h2>4. 与 <code>trit-orch::effects</code> 的映射</h2>
+<p><code>trit-orch</code> 已经有外部副作用的六态台账：</p>
+<table>
+<thead><tr><th><code>Effect</code></th><th>含义</th><th>对应通讯层</th></tr></thead>
+<tbody><tr><td><code>Prepared</code></td><td>意图已落账，尚未发送</td><td>准备发送</td></tr><tr><td><code>Sending</code></td><td>发送标记已落盘，可能已发生</td><td>正在发送</td></tr><tr><td><code>Sent</code></td><td>调用已被受理</td><td><code>Sent</code></td></tr><tr><td><code>Confirmed</code></td><td>外部确认发生</td><td><code>Delivered/Read/Acted</code> 的合并结果</td></tr><tr><td><code>Refuted</code></td><td>外部确认未发生</td><td>可重试</td></tr><tr><td><code>Unknown</code></td><td>可能已发生，但结果不明</td><td>必须先对账，不盲重试</td></tr></tbody>
+</table>
+<p>关键规则（沿用 <code>effects.rs</code>）：</p>
+<ul>
+<li><code>may_retry</code> 只允许 <code>None</code> 或 <code>Refuted</code>。</li>
+<li><code>Prepared/Sending/Sent/Unknown/Confirmed</code> 都不能再 <code>prepare</code>。</li>
+<li><code>fence</code> 单调；旧执行器的提交会被拒绝。</li>
+<li><code>dispatch_ready</code> 要求同 epoch 且 <code>Prepared</code>。</li>
+</ul>
+<p><strong>建议扩展</strong>：在 <code>Effect</code> 之上加通讯四态（<code>Delivered/Read/Acted</code>），<br>但底层仍以 <code>Ledger</code> 为准；不要把四态做成第二套账。</p>
+<hr>
+<h2>5. 权限</h2>
+<ul>
+<li>跨智能体<strong>只能 propose</strong>：<code>intent=propose</code>，目标 <code>accept/reject</code>。</li>
+<li>目标接受后才产生写/合并/发布动作。</li>
+<li>不可逆动作（删除、force push、发布、权限变更）必须人类确认 + 快照。</li>
+<li>能力越界 → 拒绝并记录；不要“先做了再说”。</li>
+</ul>
+<hr>
+<h2>6. 适配器：MCP / A2A 类协议</h2>
+<ul>
+<li><strong>MCP</strong>：适合“工具/资源”面（读文件、跑命令、查数据），<strong>不是</strong>智能体会话协议。</li>
+<li><strong>A2A/ACP 类</strong>：可作为上层适配器；核心只依赖本页的信封/能力/回执。</li>
+<li>适配器负责：</li>
+<li>把本页信封映射到对方协议；</li>
+<li>把对方的回执映射回 <code>Sent/Delivered/Read/Acted/Unknown</code>；</li>
+<li>不做语义决策（谁该写、能不能合并由编排层决定）。</li>
+<li>原则：<strong>核心不绑定任何单一协议</strong>；适配器坏了，核心仍可用。</li>
+</ul>
+<hr>
+<h2>7. 安全</h2>
+<ul>
+<li>不信任 payload：长度、类型、字段、路径都要校验。</li>
+<li>不把 secret 放进 <code>body</code>；用引用/句柄。</li>
+<li><code>refs</code> 只放可公开/可回读的指针；敏感信息走安全通道。</li>
+<li>跨智能体默认不共享工作区路径；需要时显式授权。</li>
+<li>记录所有跨智能体动作，便于回放/追责。</li>
+</ul>
+<hr>
+<h2>8. 测试矩阵</h2>
+<table>
+<thead><tr><th>场景</th><th>期望</th></tr></thead>
+<tbody><tr><td>重复投递同一 <code>idempotency_key</code></td><td>副作用至多一次</td></tr><tr><td>消息乱序</td><td>按 HLC/因果序处理，不覆盖新状态</td></tr><tr><td>超时无回执</td><td><code>Unknown</code>，不写“没回”</td></tr><tr><td>对方能力不足</td><td>拒绝，不降级</td></tr><tr><td>旧 fence 写</td><td>拒绝</td></tr><tr><td>伪造能力</td><td>拒绝 + 记录</td></tr><tr><td>大 payload</td><td>拒绝/分片，不静默截断</td></tr><tr><td>适配器不可用</td><td>核心仍能本地运行</td></tr></tbody>
+</table>
+<hr>
+<h2>9. 最小落地顺序</h2>
+<ol>
+<li>定义信封 JSON + 能力名 + 四态回执。</li>
+<li>在 <code>trit-orch</code> 外包一层 <code>interop</code> 适配器；底层用 <code>Effects::Ledger</code>。</li>
+<li>两个假智能体跑通：正常、重复、乱序、超时、越权。</li>
+<li>接一个真实宿主（Qoder/ZCode/其他）做只读握手。</li>
+<li>再做写能力；不可逆动作先不开放。</li>
+</ol>
+<p>&gt; 先只读、再 propose、最后才 accept 写。不要一上来就给跨智能体写权限。</p>
+<div class="pager"><a href="Control-Channels.html">← 操控方式</a><a class="next" href="Transport-UI.html">传输层 UI →</a></div>
+<div class="meta">
+  <span class="badge">trit-agent 维基</span>
+  <span class="badge">bfxh/agent-wiki</span>
+  <span class="badge">Rust · Minecraft · 零依赖</span>
+</div>
+</main>
+</div>
+
+<div id="tx-overlay" class="tx-overlay" hidden></div>
+<aside id="tx-drawer" class="tx-drawer" role="dialog" aria-modal="true" aria-labelledby="tx-title" hidden>
+  <div class="tx-head">
+    <strong id="tx-title">传输记录</strong>
+    <span class="tx-note">示例数据</span>
+    <button id="tx-close" class="tx-close" type="button" aria-label="关闭">×</button>
+  </div>
+  <div class="tx-filters">
+    <label>状态 <select id="tx-filter"><option value="">全部</option></select></label>
+    <span class="tx-hint">点一条展开 payload</span>
+  </div>
+  <div id="tx-list" class="tx-list"></div>
+</aside>
+
+<script src="search-data.js"></script>
+<script src="transport-data.js"></script>
+<script src="site.js"></script>
+</body>
+</html>
