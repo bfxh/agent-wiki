@@ -46,8 +46,7 @@
 </nav>
 <main>
 <h1>跨智能体通讯</h1><p class="subtitle">信封、能力握手、四态回执；兼容别的智能体</p>
-<p>&gt; 目标：能和别的智能体/宿主协作，但<strong>不共享内部实现</strong>。<br>&gt; 只在通讯层约定：信封、能力、回执、幂等、超时。<br>&gt; 对应实现：<code>trit-orch::effects</code> 的六态台账；本页是协议层说明书。</p>
-<hr>
+<p>&gt; 目标：能和别的智能体/宿主协作，但<strong>不共享内部实现</strong>。<br>&gt; 只在通讯层约定：信封、能力、回执、幂等、超时。<br>&gt; 对应实现：<code>trit-orch::effects</code> 的六态台账；本页是协议层说明书。<br>---</p>
 <h2>0. 边界</h2>
 <ul>
 <li><strong>共享</strong>：消息信封、能力名、内容类型、回执状态、幂等键、过期时间。</li>
@@ -178,7 +177,7 @@
 <h2>9. 最小落地顺序</h2>
 <ol>
 <li>定义信封 JSON + 能力名 + 四态回执。</li>
-<li>在 <code>trit-orch</code> 外包一层 <code>interop</code> 适配器；底层用 <code>Effects::Ledger</code>。</li>
+<li>在 <code>trit-orch</code> 外包一层 <code>interop</code> 适配器；底层用 <code>effects::Ledger</code>。</li>
 <li>两个假智能体跑通：正常、重复、乱序、超时、越权。</li>
 <li>接一个真实宿主（Qoder/ZCode/其他）做只读握手。</li>
 <li>再做写能力；不可逆动作先不开放。</li>
