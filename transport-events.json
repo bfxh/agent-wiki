@@ -75,7 +75,7 @@
     "status": "acted",
     "summary": "已按回执收窄 claim 到两只 json",
     "payload": "claim=scripts__gitflow.py.json, scripts__snapshot.py.json\nreleased=scripts/mutants/**\nagent_claims check=green",
-    "evidence": ["file:scripts/mutant/scripts__gitflow.py.json"]
+    "evidence": ["file:scripts/mutants/scripts__gitflow.py.json"]
   },
   {
     "id": "tx-0007",

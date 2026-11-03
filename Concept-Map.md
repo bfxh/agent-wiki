@@ -13,7 +13,7 @@
                          ├─ trit-core       三值逻辑内核：Ternary / K3 / Ł3 / B3
                          ├─ sansheng        crates.io 上的发布门面
                          ├─ trit-schedule   静态三值 DAG 调度 + 运行时/检查点
-                         ├─ trit-orch       准入/选择/预算/上下文/副作用/轨迹
+                         ├─ trit-orch       准入/选择/预算/上下文/副作用/轨迹（feat/orchestration-core）
                          ├─ trit-belnap     Belnap 四值（矛盾检测）
                          ├─ trit-policy     策略/门禁
                          ├─ trit-net       网络面
