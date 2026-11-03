@@ -124,6 +124,24 @@ dependency_gate(required, evidence):
 - **`Unknown` 不是失败**：副作用已发出但结果不明时进入 `Unknown`，先对账，不盲重试。
 - **`0` 不是空**：`CheckReport` 只有在“当前 epoch + 至少一条断言 + 结果确定”时才给 `True/False`，否则 `Unknown`。
 
+### 5.1 现状：协调原语已落地（`feat/orchestration-core`）
+
+`trit-orch` 现在已有：
+
+| 原语 | API | 语义 |
+|---|---|---|
+| 认领/租约 | `ClaimStore::claim/renew/release/state_of/gate` | 路径前缀、TTL、fencing、Contested/Expired |
+| 第五门 | `admit_with_claim(deps, auth, res, fresh, claim)` | 四门 K3 AND 再与 claim 做 K3 AND |
+| 通讯回执 | `DeliveryReceipt` + `ReceiptLedger` | Sent→Delivered→Read→Acted；Rejected/Expired 终止 |
+| 交接包 | `HandoffPacket` + `handoff_gate` | 结构/过期/状态哈希三值判定 |
+| 测试 | `tests/coordination.rs` | 14 条；含 `admit_with_claim` 243 组 |
+| 变异 | `scripts/orch_mutants.py` | 过期续约、旧 fence、前缀冲突、未覆盖、回执跳级、Acted 终止、交接哈希/过期 |
+
+注意：`evidence::Receipt` 是**执行回执**（exit/断言数），
+`receipt::DeliveryReceipt` 是**通讯回执**（Sent→Acted）。两者不要混。
+
+> 还在 `feat/orchestration-core`，未合 `main`；CLI 适配还没接。
+
 ---
 
 ## 6. 跨会话 / 跨智能体

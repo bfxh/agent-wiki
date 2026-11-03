@@ -39,7 +39,7 @@ bfxh/arch-optimize             架构扫描/回归守卫
 | 用三值逻辑（K3/Ł3/B3） | `trit-core` | `Ternary::{True,Unknown,False}`、真值表、`&`/`\|` | 不要拿它做调度 |
 | 发一个三值库 | `sansheng` | 发布门面/版本 | 不要直接发 workspace 内部 crate |
 | 排一个静态 DAG | `trit-schedule` | `Task`、`Dependency`、`Schedule`、`run_resumable` | 不要指望它管认领/权限 |
-| 决定“这一轮能不能传” | `trit-orch` | `admit`、`dependency_gate`、`Plan::select`、`compaction_gate`、`Ledger` | 不要用它执行外部调用 |
+| 决定“这一轮能不能传” | `trit-orch` | `admit`、`admit_with_claim`、`dependency_gate`、`Plan::select`、`compaction_gate`、`Ledger`、`ClaimStore`、`DeliveryReceipt` | 不要用它执行外部调用 |
 | 做安全裁决/仓库治理 | `trit-immune` | `Trit`、`ImmuneDag`、`Journal`、`Fleet`、`policy::decide` | 不要把它当通用调度器 |
 | 做 Minecraft 角色托管 | `trit-agent` + `trit-mc` | `fsm.rs`、`Sensor`、`CommandSink` | 不要把它当通用 agent 框架 |
 | 仓库自动化（快照/发布） | `repo-tools` | `snapshot.py`、`publish`、`detach` | 不要把它当协议核心 |
@@ -64,7 +64,7 @@ bfxh/arch-optimize             架构扫描/回归守卫
 ### 3.3 `trit-schedule` 与 `trit-orch`
 
 - **`trit-schedule`**：静态 DAG 算法 + 运行时。输入任务图/worker/优先级，输出 makespan/关键路径/延迟。
-- **`trit-orch`**：在调度之上加**准入/预算/上下文/副作用/进度**。它回答“这一轮能不能传、传哪个、传完算不算”。
+- **`trit-orch`**：在调度之上加**准入/预算/上下文/副作用/进度**，以及**认领/回执/交接**。它回答“这一轮能不能传、传哪个、传完算不算”。
 - 一句话：`trit-schedule` 是“怎么排”，`trit-orch` 是“能不能传/传完算不算”。
 
 ### 3.4 `trit-agent` 与 `trit-orch`
