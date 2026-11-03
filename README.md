@@ -15,6 +15,7 @@ trit-agent 的独立维基。内容用 Markdown 写（`*.md`），构建成静�
 ├── transport-events.json  传输层 UI 的示例事件（本地静态，非真实日志）
 ├── scripts/
 │   ├── build_site.py Markdown → HTML 的生成器（零依赖）
+│   ├── check_wiki.py 文档门禁 W1-W12（零依赖，带负例自测）
 │   └── site.js       搜索 + 传输层抽屉（零依赖）
 └── site/             构建产物（不入库，由 CI/脚本生成）
 ```
@@ -95,6 +96,23 @@ GitHub 原生 Wiki 的 `.wiki.git` 仓库**必须在网页端手工建过第一�
 - `[[内部链接]]` 目标存在（代码块/行内代码里的示例不算）；
 - `transport-events.json` 字段完整。
 
+### 门禁（W1-W12）
+
+```bash
+# 负例自测：必须证明每类错误都能判红
+python scripts/check_wiki.py --self-test
+
+# 实际检查：清单/孤儿/断链/元数据/传输事件/密钥/构建/UI/分组/生成数据
+python scripts/check_wiki.py --src .
+
+# JSON 输出
+python scripts/check_wiki.py --src . --json
+```
+
+- 任何 FAIL 都打印具体文件/字段；退出码 1。
+- `--self-test` 会造 11 个负例；如果某个负例没红，自测自己判红。
+- CI：`.github/workflows/wiki-gate.yml`，push/PR 都跑自测 + 门禁 + 构建。
+
 ### 搜索与传输层 UI
 
 - **搜索**：侧边栏输入框，按标题/摘要/标签/正文过滤，纯本地 `search-data.js`。
@@ -130,6 +148,7 @@ GitHub 原生 Wiki 的 `.wiki.git` 仓库**必须在网页端手工建过第一�
 | `Agent-Interop` | 跨智能体通讯：信封、能力握手、四态回执 |
 | `Transport-UI` | 传输层 UI：徽标、抽屉、事件 schema |
 | `Docs-As-Artifacts` | 文档即工件：清单、渲染、发布 |
+| `Gate` | 文档门禁 W1-W12：清单/断链/传输/构建/UI |
 
 ---
 

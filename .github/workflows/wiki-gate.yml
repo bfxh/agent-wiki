@@ -1,0 +1,33 @@
+name: wiki-gate
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wiki-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Self-test (negative cases must fail)
+        run: python scripts/check_wiki.py --self-test
+
+      - name: Gate (W1-W12)
+        run: python scripts/check_wiki.py --src .
+
+      - name: Build site
+        run: python scripts/build_site.py --src . --out site
