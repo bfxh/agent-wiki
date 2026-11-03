@@ -134,7 +134,7 @@
 <tbody><tr><td>认领/租约</td><td><code>ClaimStore::claim/renew/release/state_of/gate</code></td><td>路径前缀、TTL、fencing、Contested/Expired</td></tr><tr><td>第五门</td><td><code>admit_with_claim(deps, auth, res, fresh, claim)</code></td><td>四门 K3 AND 再与 claim 做 K3 AND</td></tr><tr><td>通讯回执</td><td><code>DeliveryReceipt</code> + <code>ReceiptLedger</code></td><td>Sent→Delivered→Read→Acted；Rejected/Expired 终止</td></tr><tr><td>交接包</td><td><code>HandoffPacket</code> + <code>handoff_gate</code></td><td>结构/过期/状态哈希三值判定</td></tr><tr><td>测试</td><td><code>tests/coordination.rs</code></td><td>14 条；含 <code>admit_with_claim</code> 243 组</td></tr><tr><td>变异</td><td><code>scripts/orch_mutants.py</code></td><td>过期续约、旧 fence、前缀冲突、未覆盖、回执跳级、Acted 终止、交接哈希/过期</td></tr></tbody>
 </table>
 <p>注意：<code>evidence::Receipt</code> 是<strong>执行回执</strong>（exit/断言数），<br><code>receipt::DeliveryReceipt</code> 是<strong>通讯回执</strong>（Sent→Acted）。两者不要混。</p>
-<p>&gt; 已合并到 <code>main</code>（PR #241，main=<code>58d5589</code>）；旧 <code>feat/orchestration-core</code> 保留（含 GPU/texture 等改动）。<br>&gt; CLI 适配还没接。</p>
+<p>&gt; 已合并到 <code>main</code>（PR #241，main=<code>58d5589</code>）；CLI/JSON 宿主桥也已接（PR #243，main=<code>8acf259</code>）。<br>&gt; 旧 <code>feat/orchestration-core</code> 保留（含 GPU/texture 等改动）。<br>&gt; 下一个缺口：与 Python <code>agent_claims.py</code> 对拍。</p>
 <hr>
 <h2>6. 跨会话 / 跨智能体</h2>
 <p>仅靠“发消息”不够。至少需要：</p>
